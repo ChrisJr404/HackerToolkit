@@ -11,7 +11,7 @@ Whether you're a seasoned penetration tester or just starting out in the world o
 - **Quick Installation:** Get up and running quickly with our `install.sh` script that allows you to download and install all tools at once — streamlining your setup process and saving you valuable time.
 - **Cross-Distribution Compatibility:** Originally tailored for Kali Linux, our toolkit is compatible with many other Linux distributions, ensuring flexibility regardless of your preferred environment.
 
-### Getting Started:
+### Installation Instructions:
 1. **Clone the Repository:** `git clone https://github.com/ChrisJr404/HackerToolkit.git`
 2. **Navigate to the Repository:** `cd HackerToolkit`
 3. **Run the Installation Script:** `./install.sh`
