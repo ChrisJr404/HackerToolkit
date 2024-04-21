@@ -21,12 +21,32 @@ Whether you're a seasoned penetration tester or just starting out in the world o
 Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the repo and follow me to stay updated with the latest tools and improvements!
 
 # Enumeration Tools
+## Ad & Analytic Trackers
+### relations.sh
+Find related domains and subdomains by looking at a target’s ad/analytics tracker codes
+* https://gist.github.com/hateshape/393ab7003023f3b13126a4892100c8ff
+
+![Google_Analytics_Tracking_Code](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/89a9192a-e9ea-4847-96e6-7b30827d9812)
+
 ## Apex Domain Enumeration
 ### check_mdi
 Python script to enumerate valid Microsoft 365 domains, retrieve tenant name, and check for a Microsoft Defender for Identity (MDI) instance.
 * https://github.com/expl0itabl3/check_mdi
 
 ![Fpg1kqZWABgCJGx](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/9c60b863-4c6c-4fba-b631-5e3b325cfd9c)
+
+### CloudRecon
+Finding assets and subdomains from certificates! Scan the web! 
+* https://github.com/g0ldencybersec/CloudRecon
+
+![324196773-8fe87016-1459-4d3a-a964-6b169325ec8c](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/9190fd8b-8017-44f2-a14b-4dbd9f9d8b8d)
+
+## Github Enumeration
+### github-search
+Perform code search through GitHub API. Finds contributors, dorks, employees, endpoints, secrets, subdomains, users, etc. 
+* https://github.com/gwen001/github-search
+
+![github-search](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/0a689973-fac3-4e25-9479-c25eae0ca733)
 
 ## Port Scanners (Active)
 ### Naabu
@@ -61,6 +81,12 @@ Smap is a port scanner built with shodan.io's free API. It takes same command li
 
 ![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2f317bed-b64f-4067-a848-e5e621429b1c)
 
+### shosubgo
+Small tool to Grab subdomains using Shodan api.
+* https://github.com/incogbyte/shosubgo
+
+![shosubgo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/b29be12b-4a8b-4f19-a0a4-7e78836bc6fc)
+
 ### Smap
 Smap is a port scanner built with shodan.io's free API. It takes same command line arguments as Nmap and produces the same output which makes it a drop-in replacament for Nmap.
 * https://github.com/s0md3v/Smap
@@ -72,6 +98,85 @@ Passive hostname, domain and IP lookup tool for non-robots.
 * https://github.com/pirxthepilot/wtfis
 
 ![demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/11088982-3350-48ec-a070-b913e3bbcdca)
+
+## Spiders
+### GoSpider is a fast web spider written in Go
+* https://github.com/jaeles-project/gospider
+
+![Example12](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/b741fa50-f7a9-4cc1-97d4-5dc37e8026bd)
+
+### hakrawler
+Fast golang web crawler for gathering URLs and JavaScript file locations. This is basically a simple implementation of the awesome Gocolly library.
+* https://github.com/hakluke/hakrawler
+
+![1 kpuT3tZ7bS5qSLJPQa_7IQ](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/16ebc455-da68-4f32-a78e-d744f50122cc)
+
+## Subdomain Enumeration and Brute Force
+### Altdns
+Altdns is a DNS recon tool that allows for the discovery of subdomains that conform to patterns. Altdns takes in words that could be present in subdomains under a domain (such as test, dev, staging) as well as takes in a list of subdomains that you know of.
+* https://github.com/infosec-au/altdns
+
+![68747470733a2f2f692e696d6775722e636f6d2f4a7966756532362e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2de07fcf-2473-4854-b92d-d9dfe4234463)
+
+### AlterX
+Fast and customizable subdomain wordlist generator using DSL.
+* https://github.com/projectdiscovery/alterx
+
+![229380735-140d3f25-d0cb-461d-8c49-4c1eff43d1f4](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/653389cb-db3f-486d-92fe-aabf48da7c5f)
+
+### Amass
+The OWASP Amass Project performs network mapping of attack surfaces and external asset discovery using open source information gathering and active reconnaissance techniques.
+* https://github.com/owasp-amass/amass
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2d260a63-e529-444d-aadb-7099d59a8b01)
+
+### BBOT
+BBOT (Bighuge BLS OSINT Tool) is a recursive internet scanner inspired by Spiderfoot, but designed to be faster, more reliable, and friendlier to pentesters, bug bounty hunters, and developers.
+* https://github.com/blacklanternsecurity/bbot
+
+![296080072-53e07e9f-50b6-4b70-9e83-297dbfbcb436](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/3250d9e2-a31e-40a6-b08a-0744aeb3ced8)
+
+### CloudRecon
+Finding assets and subdomains from certificates! Scan the web! 
+* https://github.com/g0ldencybersec/CloudRecon
+
+![324196773-8fe87016-1459-4d3a-a964-6b169325ec8c](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/9190fd8b-8017-44f2-a14b-4dbd9f9d8b8d)
+
+### dnsgen
+This tool generates a combination of domain names from the provided input. Combinations are created based on wordlist. Custom words are extracted per execution.
+* https://github.com/AlephNullSK/dnsgen
+
+![68747470733a2f2f307870617472696b2e636f6d2f636f6e74656e742f696d616765732f323031392f30392f646e7367656e2d312e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/15a9dd87-f5b1-4537-b20d-417813dbf802)
+
+### github-subdomains
+This Go tool performs searches on GitHub and parses the results to find subdomains of a given domain. May have to run several times to get complete results.
+* https://github.com/gwen001/github-subdomains
+
+![preview](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/82c6bbc7-2520-463f-a4a2-73e2687f1924)
+
+### puredns
+puredns is a fast domain resolver and subdomain bruteforcing tool that can accurately filter out wildcard subdomains and DNS poisoned entries.
+* https://github.com/d3mondev/puredns
+
+![puredns-terminal](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/63f23c67-331d-47b1-9756-36665b265e5a)
+
+### shosubgo
+Small tool to Grab subdomains using Shodan api.
+* https://github.com/incogbyte/shosubgo
+
+![shosubgo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/b29be12b-4a8b-4f19-a0a4-7e78836bc6fc)
+
+### Subfinder
+Subdomain discovery tool that returns valid subdomains for websites, using passive online sources. It has a simple, modular architecture and is optimized for speed. 
+* https://github.com/projectdiscovery/subfinder
+
+![subfinder-run](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/adde8c28-c77a-48b1-84c6-9744c042eec9)
+
+### SubreconGPT
+This (VERY BETA) Python script performs AI-assisted subdomain discovery. It takes a list of subdomains as input, generates similar subdomains using the OpenAI GPT-3 model, and attempts to resolve these subdomains.
+* https://github.com/jhaddix/SubreconGPT
+
+![324197238-19ae48c3-2d04-4e24-a0c7-5e5cd29dfbe8](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/481076b1-8761-4351-92bc-dca5e8fda281)
 
 # Burp Suite Extensions (Doesn't Automatically Install)
 ### Active Scan++
