@@ -20,7 +20,7 @@ Whether you're a seasoned penetration tester or just starting out in the world o
 
 Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the repo and follow me to stay updated with the latest tools and improvements!
 
-# Enumeration Tools
+# Enumeration & Recon Tools
 ## Ad & Analytic Trackers
 ### relations.sh
 Find related domains and subdomains by looking at a target’s ad/analytics tracker codes
@@ -40,6 +40,12 @@ Finding assets and subdomains from certificates! Scan the web!
 * https://github.com/g0ldencybersec/CloudRecon
 
 ![324196773-8fe87016-1459-4d3a-a964-6b169325ec8c](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/9190fd8b-8017-44f2-a14b-4dbd9f9d8b8d)
+
+### FavFreak
+Use favicon.ico hashes for finding new assets/IP addresses and technologies owned by a company.
+* https://github.com/devanshbatham/FavFreak
+
+![68747470733a2f2f63646e2d696d616765732d312e6d656469756d2e636f6d2f6d61782f313230302f312a737176314b4c6f354242614c4b5347535577465566772e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2aeb847e-f3fe-4a7f-a653-8b4236c5d391)
 
 ## Github Enumeration
 ### github-search
@@ -73,6 +79,19 @@ Smap is a port scanner built with shodan.io's free API. It takes same command li
 * https://github.com/s0md3v/Smap
 
 ![smap-demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/add08959-8071-46df-9852-dbbeaade4deb)
+
+## Recon Frameworks
+### reconFTW
+reconFTW automates the entire process of reconnaissance for you. It outperforms the work of subdomain enumeration along with various vulnerability checks and obtaining maximum information about your target.
+* https://github.com/six2dez/reconftw
+
+![mindmap_obsidian](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d39f578b-eeeb-4741-a131-efe8de6eae11)
+
+### reNgine
+reNgine is your go-to web application reconnaissance suite that's designed to simplify and streamline the reconnaissance process for security professionals, penetration testers, and bug bounty hunters. With its highly configurable engines, data correlation capabilities, continuous monitoring, database-backed reconnaissance data, and an intuitive user interface, reNgine redefines how you gather critical information about your target web applications. 
+* https://github.com/yogeshojha/rengine
+
+![164993749-1ad343d6-8ce7-43d6-aee7-b3add0321da7](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/efed20d0-285a-4fd2-857d-f3ffe5f3e0c4)
 
 ## Shodan Tools
 ### karma v2
@@ -184,6 +203,12 @@ This tool generates a combination of domain names from the provided input. Combi
 * https://github.com/AlephNullSK/dnsgen
 
 ![68747470733a2f2f307870617472696b2e636f6d2f636f6e74656e742f696d616765732f323031392f30392f646e7367656e2d312e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/15a9dd87-f5b1-4537-b20d-417813dbf802)
+
+### FavFreak
+Use favicon.ico hashes for finding new assets/IP addresses and technologies owned by a company.
+* https://github.com/devanshbatham/FavFreak
+
+![68747470733a2f2f63646e2d696d616765732d312e6d656469756d2e636f6d2f6d61782f313230302f312a737176314b4c6f354242614c4b5347535577465566772e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2aeb847e-f3fe-4a7f-a653-8b4236c5d391)
 
 ### github-subdomains
 This Go tool performs searches on GitHub and parses the results to find subdomains of a given domain. May have to run several times to get complete results.
