@@ -2,25 +2,78 @@ work in progress, star and follow to track progress
 
 ![DALL·E 2024-04-20 23 27 00 - Create a digital banner for the GitHub repository named 'HackerToolkit', ensuring it mirrors the previous design closely with only one change correct](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/170bf9c2-03c0-40ef-a9e9-230c76f65122)
 
-## Welcome to the HackerToolkit 🛠️
+# Welcome to the HackerToolkit 🛠️
 
 **Your comprehensive suite for penetration testing and bug bounty hunting.**
 
 Whether you're a seasoned penetration tester or just starting out in the world of bug bounty hunting, HackerToolkit offers a curated selection of tools designed to enhance your hacking capabilities. This repository not only organizes these tools but provides information about them.
 
-### Features:
+## Features:
 - **Complete Tool Listings:** Access a meticulously organized list of tools included in the `install.sh` file, each with a detailed description to help you understand and choose the right tool for the right job.
 - **Quick Installation:** Get up and running quickly with our `install.sh` script that allows you to download and install all tools at once (unless noted) — streamlining your setup process and saving you valuable time.
 - **Cross-Distribution Compatibility:** Originally tailored for Kali Linux, our toolkit is compatible with many other Linux distributions, ensuring flexibility regardless of your preferred environment.
 
-### Installation Instructions:
+## Installation Instructions:
 1. **Clone the Repository:** `git clone https://github.com/ChrisJr404/HackerToolkit.git`
 2. **Navigate to the Repository:** `cd HackerToolkit`
 3. **Run the Installation Script:** `./install.sh`
 
 Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the repo and follow me to stay updated with the latest tools and improvements!
 
-## Burp Suite Extensions (Doesn't Automatically Install)
+# Enumeration Tools
+## Apex Domain Enumeration
+### check_mdi
+Python script to enumerate valid Microsoft 365 domains, retrieve tenant name, and check for a Microsoft Defender for Identity (MDI) instance.
+* https://github.com/expl0itabl3/check_mdi
+
+![Fpg1kqZWABgCJGx](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/9c60b863-4c6c-4fba-b631-5e3b325cfd9c)
+
+## Port Scanners (Active)
+### Naabu
+Naabu is a port scanning tool written in Go that allows you to enumerate valid ports for hosts in a fast and reliable manner. It is a really simple tool that does fast SYN/CONNECT/UDP scans on the host/list of hosts and lists all ports that return a reply. Most usable port scanner.
+* https://github.com/projectdiscovery/naabu
+
+![180417395-25b1b990-c032-4b5c-9b66-03b58db0789a](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/6259ec60-d179-451f-8cfb-b1fa3ad7ca8f)
+
+### Nmap
+Most extensible scanner.
+* https://github.com/nmap/nmap
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/b785b1bc-2fc0-4bc8-bda4-3f7de4153368)
+
+### RustScan
+RustScan is empirically the fastest modern port scanner.
+* https://github.com/RustScan/RustScan
+
+![fast](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/07ee2643-76d3-4023-aa14-c91b5568336e)
+
+## Port Scanners (Passive) 
+### Smap
+Smap is a port scanner built with shodan.io's free API. It takes same command line arguments as Nmap and produces the same output which makes it a drop-in replacament for Nmap.
+* https://github.com/s0md3v/Smap
+
+![smap-demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/add08959-8071-46df-9852-dbbeaade4deb)
+
+## Shodan Tools
+### karma v2
+𝚔𝚊𝚛𝚖𝚊 𝚟𝟸 can be used by Infosec Researchers, Penetration Testers, Bug Hunters to find deep information, more assets, WAF/CDN bypassed IPs, Internal/External Infra, Publicly exposed leaks and many more about their target. Shodan Premium API key is required to use this automation. Output from the 𝚔𝚊𝚛𝚖𝚊 𝚟𝟸 is displayed to the screen and saved to files/directories. 
+* https://github.com/Dheerajmadhukar/karma_v2
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2f317bed-b64f-4067-a848-e5e621429b1c)
+
+### Smap
+Smap is a port scanner built with shodan.io's free API. It takes same command line arguments as Nmap and produces the same output which makes it a drop-in replacament for Nmap.
+* https://github.com/s0md3v/Smap
+
+![smap-demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/add08959-8071-46df-9852-dbbeaade4deb)
+
+### wtfis
+Passive hostname, domain and IP lookup tool for non-robots.
+* https://github.com/pirxthepilot/wtfis
+
+![demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/11088982-3350-48ec-a070-b913e3bbcdca)
+
+# Burp Suite Extensions (Doesn't Automatically Install)
 ### Active Scan++
 ActiveScan++ extends Burp Suite's active and passive scanning capabilities. Designed to add minimal network overhead, it identifies application behaviour that may be of interest to advanced testers.
 * https://portswigger.net/bappstore/3123d5b5f25c4128894d97ea1acc4976
@@ -109,7 +162,7 @@ This extension monitors traffic and looks for request parameter values (longer t
 Turbo Intruder is a Burp Suite extension for sending large numbers of HTTP requests and analyzing the results. It's intended to complement Burp Intruder by handling attacks that require extreme speed or complexity.
 * https://portswigger.net/bappstore/9abaa233088242e8be252cd4ff534988
 
-## Firefox Browser Extensions (Doesn't Automatically Install)
+# Firefox Browser Extensions (Doesn't Automatically Install)
 ### Cookie-Editor
 Efficiently create, edit and delete a cookie for the current tab. Perfect for developing, quickly testing or even manually managing your cookies for your privacy.
 * https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/
