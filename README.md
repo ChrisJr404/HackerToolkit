@@ -18,7 +18,7 @@ Whether you're a seasoned penetration tester or just starting out in the world o
 2. **Navigate to the Repository:** `cd HackerToolkit`
 3. **Run the Installation Script:** `./install.sh`
 
-Embrace the power of a comprehensive hacking suite with HackerToolkit. Star and fork our repository to stay updated with the latest tools and improvements!
+Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the repo and follow me to stay updated with the latest tools and improvements!
 
 ## Burp Suite Extensions (Doesn't Automatically Install)
 ### Active Scan++
