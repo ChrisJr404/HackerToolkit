@@ -99,6 +99,43 @@ Passive hostname, domain and IP lookup tool for non-robots.
 
 ![demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/11088982-3350-48ec-a070-b913e3bbcdca)
 
+## Screenshotting
+### Aquatone
+Aquatone is a tool for visual inspection of websites across a large amount of hosts and is convenient for quickly gaining an overview of HTTP-based attack surface.
+* https://github.com/michenriksen/aquatone
+
+![rszscreenshot280](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/ef2532ae-4c9e-40b3-95df-81a09ff0d508)
+
+### Eyeballer
+Eyeballer is meant for large-scope network penetration tests where you need to find "interesting" targets from a huge set of web-based hosts. Go ahead and use your favorite screenshotting tool like normal (EyeWitness or GoWitness) and then run them through Eyeballer to tell you what's likely to contain vulnerabilities, and what isn't.
+* https://github.com/BishopFox/eyeballer
+
+![eyeballer_logo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/7627421d-aaca-44fa-b397-8fc2af6ef98e)
+
+### EyeWitness
+EyeWitness is designed to take screenshots of websites provide some server header info, and identify default credentials if known.
+* https://github.com/RedSiege/EyeWitness
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/27da8e8a-a63b-418c-ab9a-c9131b3fdd80)
+
+### go-stare
+A fast & light web screenshot without headless browser but Chrome DevTools Protocol!
+* https://github.com/dwisiswant0/go-stare
+
+![94014291-86398780-fdd5-11ea-803d-4eb3ec64bd7b](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/af9d996a-e4a6-4e14-9504-5ccdc7676cd6)
+
+### httpscreenshot
+HTTPScreenshot is a tool for grabbing screenshots and HTML of large numbers of websites. The goal is for it to be both thorough and fast which can sometimes oppose each other.
+* https://github.com/breenmachine/httpscreenshot
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/edd505fc-d48f-47de-bddf-50c4913560cd)
+
+### httpx
+httpx is a fast and multi-purpose HTTP toolkit that allows running multiple probes using the retryablehttp library. It is designed to maintain result reliability with an increased number of threads.
+* https://github.com/projectdiscovery/httpx
+
+![135731750-4c1d38b1-bd2a-40f9-88e9-3c4b9f6da378](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/58e90897-e35c-4e6a-ad80-40fc79e50b90)
+
 ## Spiders
 ### GoSpider is a fast web spider written in Go
 * https://github.com/jaeles-project/gospider
