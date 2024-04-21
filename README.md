@@ -1,3 +1,5 @@
+![DALL·E 2024-04-20 23 27 00 - Create a digital banner for the GitHub repository named 'HackerToolkit', ensuring it mirrors the previous design closely with only one change correct](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/170bf9c2-03c0-40ef-a9e9-230c76f65122)
+
 ## Welcome to the HackerToolkit 🛠️
 
 **Your comprehensive suite for penetration testing and bug bounty hunting.**
