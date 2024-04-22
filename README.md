@@ -4,9 +4,9 @@ work in progress, star and follow to track progress
 
 # Welcome to the HackerToolkit 🛠️
 
-**Your comprehensive suite for penetration testing and bug bounty hunting.**
+**Your comprehensive suite for penetration testing, red teaming, and bug bounty hunting.**
 
-Whether you're a seasoned penetration tester/red teamer or just starting out in the world of bug bounty hunting, HackerToolkit offers a curated selection of tools designed to enhance your hacking capabilities. This repository not only organizes these tools but provides information about them. Easily install all of them with one script. 
+HackerToolkit offers a curated selection of tools designed to enhance your hacking capabilities. This repository not only organizes these tools but provides information about them. Easily install all of them with one script. 
 
 ## Features:
 - **Complete Tool Listings:** Access a meticulously organized list of tools included in the `install.sh` file, each with a detailed description to help you understand and choose the right tool for the right job.
