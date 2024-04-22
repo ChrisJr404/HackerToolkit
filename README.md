@@ -6,7 +6,7 @@ work in progress, star and follow to track progress
 
 **Your comprehensive suite for penetration testing and bug bounty hunting.**
 
-Whether you're a seasoned penetration tester or just starting out in the world of bug bounty hunting, HackerToolkit offers a curated selection of tools designed to enhance your hacking capabilities. This repository not only organizes these tools but provides information about them.
+Whether you're a seasoned penetration tester/red teamer or just starting out in the world of bug bounty hunting, HackerToolkit offers a curated selection of tools designed to enhance your hacking capabilities. This repository not only organizes these tools but provides information about them. Easily install all of them with one script. 
 
 ## Features:
 - **Complete Tool Listings:** Access a meticulously organized list of tools included in the `install.sh` file, each with a detailed description to help you understand and choose the right tool for the right job.
@@ -46,6 +46,33 @@ Use favicon.ico hashes for finding new assets/IP addresses and technologies owne
 * https://github.com/devanshbatham/FavFreak
 
 ![68747470733a2f2f63646e2d696d616765732d312e6d656469756d2e636f6d2f6d61782f313230302f312a737176314b4c6f354242614c4b5347535577465566772e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2aeb847e-f3fe-4a7f-a653-8b4236c5d391)
+
+## Credential Collection Tools (Emails, usernames, passwords, etc)
+### deepdarkCTI
+The aim of this project is to collect the sources, present in the Deep and Dark web, which can be useful in Cyber Threat Intelligence contexts. You can try to infiltrate these communities and make friends in low place, many of which sell leaked credentials.
+* https://github.com/fastfire/deepdarkCTI/tree/main
+* https://github.com/fastfire/deepdarkCTI/blob/main/forum.md
+* https://github.com/fastfire/deepdarkCTI/blob/main/discord.md
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/eecebddb-1930-451f-9291-1d4a504c6765)
+
+### h8mail
+h8mail is an email OSINT and breach hunting tool using different breach and reconnaissance services, or local breaches such as Troy Hunt's "Collection1" and the infamous "Breach Compilation" torrent.
+* https://github.com/khast3x/h8mail
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/4c333770-a8e9-4aa6-97b7-defb6f4ecfc0)
+
+### hacxx-underground
+Directory for Hacxx Underground files (leaked credentials from database)
+* https://github.com/hacxx-underground/Files
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d59b05cd-8588-4f05-bd55-d962e28913b8)
+
+### WeakestLink
+Scrapes employees from a LinkedIn company page, performs a number of clean up steps to remove any junk and then generates a range of possible username formats so they can be used in username enumeration and password attacks.
+* https://github.com/shellfarmer/WeakestLink
+
+![LinkedIn_Logo svg](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/39fac0d6-a29b-47d1-845c-030252beaaf9)
 
 ## Github Enumeration
 ### github-search
@@ -240,6 +267,97 @@ This (VERY BETA) Python script performs AI-assisted subdomain discovery. It take
 
 ![324197238-19ae48c3-2d04-4e24-a0c7-5e5cd29dfbe8](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/481076b1-8761-4351-92bc-dca5e8fda281)
 
+## Web Technology Enumeration
+### webanalyze
+This is a port of Wappalyzer in Go. This tool is designed to be performant and allows to test huge lists of hosts.
+* https://github.com/rverton/webanalyze
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/601af95f-70dc-428b-8e4b-1a0b661d8885)
+
+# Red Teaming
+## C2
+### NimPlant
+A light first-stage C2 implant written in Nim and Python.
+* https://github.com/chvancooten/NimPlant
+
+![nimplant-web](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/c7ed6723-147d-48d5-87a3-7d64cbdc96d1)
+
+### SharpC2
+SharpC2 is a Command & Control (C2) framework written in C#. It consists of an ASP.NET Core Team Server, a .NET Framework implant, and a .NET MAUI client.
+* https://github.com/rasta-mouse/SharpC2
+
+![screenshot](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/1d87e69c-a60c-4253-b081-2f8d8e55580d)
+
+## Distribution
+### Axiom
+Axiom is a dynamic infrastructure framework to efficiently work with multi-cloud environments, build and deploy repeatable infrastructure focused on offensive and defensive security. Because you can create many disposable instances very easily, axiom allows you to distribute scans of many different tools. 
+* https://github.com/pry0cc/axiom
+
+![axiom-init-demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/c4251aa3-8127-4f45-ab77-40afaf7ad660)
+
+### Fleex
+Fleex allows you to create multiple VPS on cloud providers and use them to distribute your workload. Run tools like masscan, puredns, ffuf, httpx or anything you need and get results quickly!
+* https://github.com/FleexSecurity/fleex
+
+![68747470733a2f2f666c65657873656375726974792e6769746875622e696f2f666c6565782d646f63732f6769662f666c6565785f696e74726f2e676966](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/17873ec1-8ae7-4a43-8aa9-8228476f2c56)
+
+### ShadowClone
+ShadowClone allows you to distribute your long running tasks dynamically across thousands of serverless functions and gives you the results within seconds where it would have taken hours to complete.
+* https://github.com/fyoorer/ShadowClone
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/80724481-d097-4a29-9514-ba655fda211f)
+
+## Password Spraying, Stuffing, Brute Forcing, Cracking, etc
+### CredMaster
+Launch a password spray / brute force attach via Amazon AWS passthrough proxies, shifting the requesting IP address for every authentication attempt. This dynamically creates FireProx APIs for more evasive password sprays.
+* https://github.com/knavesec/CredMaster
+
+![credmaster-default](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/a17b98a7-5da0-448c-8b6c-cfd77282f266)
+
+### WhereToGo
+Due to security assessments of different projects, I found different leaked/exposed accounts on the domain of the organization. But every time it was so difficult to discover the place where I can reuse those credentials and how can I expand my attack surface. I started collecting a list of popular technological services which might have high value in case of improper access. This project should help researchers, pentesters, bounty-hunters to expand the risks of compromised accounts in the corporate environment.
+* https://github.com/valeriyshevchenko90/WhereToGo
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/ba5930fe-0cac-4bb2-8b06-ead1058dc905)
+
+## Phishing/Smishing/Etc
+### Evilginx 3.0
+Evilginx is a man-in-the-middle attack framework used for phishing login credentials along with session cookies, which in turn allows to bypass 2-factor authentication protection.
+* https://github.com/kgretzky/evilginx2
+
+![screen](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2b4f35c3-8142-4ff2-bf4a-38db478eabae)
+
+### EvilGoPhish
+In this setup, GoPhish is used to send emails and provide a dashboard for evilginx3 campaign statistics, but it is not used for any landing pages. Your phishing links sent from GoPhish will point to an evilginx3 lure path and evilginx3 will be used for landing pages. This provides the ability to still bypass 2FA/MFA with evilginx3, without losing those precious stats. Supports phishing + smishing. 
+* https://github.com/fin3ss3g0d/evilgophish
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/f883b301-f3f9-4b10-bb26-341016afdc32)
+
+### Gophish
+Gophish is an open-source phishing toolkit designed for businesses and penetration testers. It provides the ability to quickly and easily setup and execute phishing engagements and security awareness training.
+* https://github.com/gophish/gophish
+
+![68747470733a2f2f7261772e6769746875622e636f6d2f676f70686973682f676f70686973682f6d61737465722f7374617469632f696d616765732f676f70686973685f707572706c652e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/7c018c71-101d-4b20-a080-1debda7cc673)
+
+## Stealth
+### FireProx
+Being able to hide or continually rotate the source IP address when making web calls can be difficult or expensive. A number of tools have existed for some time but they were either limited with the number of IP addresses, were expensive, or required deployment of lots of VPS's. FireProx leverages the AWS API Gateway to create pass-through proxies that rotate the source IP address with every request! Use FireProx to create a proxy URL that points to a destination server and then make web requests to the proxy URL which returns the destination server response!
+* https://github.com/ustayready/fireprox
+
+![usage](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/305d9746-cc16-42af-8fed-eb37b1763131)
+
+### Mubeng
+An incredibly fast proxy checker & IP rotator with ease.
+* https://github.com/kitabisa/mubeng
+
+![180201570-4b8f3609-4285-4f27-9dff-e1d0e06c4413](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/28300f62-103a-4fa6-8b6c-391bfd52bec0)
+
+### Proxycannon-ng
+The control-server is a OpenVPN server that your workstation will connect to. This server always remains up. Exit-nodes are systems connected to the control-server that provides load balancing and multiple source IP addresses. Exit-nodes can scale up and down to suite your needs.
+* https://github.com/proxycannon/proxycannon-ng
+
+![68747470733a2f2f696d672e796f75747562652e636f6d2f76692f444c62306c4e38647070592f302e6a7067](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/0c40e572-6d35-4cac-bb40-ab3d5cd390c2)
+
 # Burp Suite Extensions (Doesn't Automatically Install)
 ### Active Scan++
 ActiveScan++ extends Burp Suite's active and passive scanning capabilities. Designed to add minimal network overhead, it identifies application behaviour that may be of interest to advanced testers.
@@ -265,6 +383,10 @@ Autorize is an extension aimed at helping the penetration tester to detect autho
 This BurpSuite extension allows you, in a quick and simple way, to improve the active and passive BurpSuite scanner by means of personalized rules through a very intuitive graphical interface. Through an advanced search of patterns and an improvement of the payload to send, we can create our own issue profiles both in the active scanner and in the passive.
 * https://portswigger.net/bappstore/618f0b2489564607825e93eeed8b9e0a
 
+### Burp VPS Proxy
+Burp VPS Proxy is a Burp Suite extension that allows for the automatic creation and deletion of upstream SOCKS5 proxies on popular cloud providers from within Burp Suite. It automatically configures Burp to use the created proxy so that all outbound traffic comes from a cloud IP address. This is useful to prevent our main IP address from being blacklisted by popular WAFs while performing penetration testing and bug bounty hunting.
+* https://github.com/d3mondev/burp-vps-proxy
+
 ### Collaborator Everywhere
 This extension augments your in-scope proxy traffic by injecting non-invasive headers designed to reveal backend systems by causing pingbacks to Burp Collaborator.
 * https://portswigger.net/bappstore/2495f6fb364d48c3b6c984e226c02968
@@ -289,9 +411,17 @@ This extension provides a Proxy history-like view along with search filter capab
 Helps with detecting and exploiting serialization in libraries and APIs.
 * https://portswigger.net/bappstore/ae1cce0c6d6c47528b4af35faebc3ab3
 
+### GatherContacts
+A Burp Suite Extension to pull Employee Names from Google and Bing LinkedIn Search Results.
+* https://github.com/clr2of8/GatherContacts
+
 ### HTTP Request Smuggler
 This is an extension for Burp Suite designed to help you launch HTTP Request Smuggling attacks. It supports scanning for Request Smuggling vulnerabilities, and also aids exploitation by handling cumbersome offset-tweaking for you.
 * https://portswigger.net/bappstore/aaaa60ef945341e8a450217a54a11646
+
+### IPRotate
+This extension allows you to easily spin up API Gateways across multiple regions. All the Burp Suite traffic for the targeted host is then routed through the API Gateway endpoints which causes the IP to be different on each request. (There is a chance for recycling of IPs but this is pretty low and the more regions you use the less of a chance). This is useful to bypass different kinds of IP blocking like bruteforce protection that blocks based on IP, API rate limiting based on IP or WAF blocking based on IP etc.
+* https://github.com/RhinoSecurityLabs/IPRotate_Burp_Extension
 
 ### Java Deserialization Scanner
 The extension allows the user to discover and exploit Java Deserialization Vulnerabilities with different encodings (Raw, Base64, Ascii Hex, GZIP, Base64 GZIP).
@@ -330,6 +460,10 @@ Turbo Intruder is a Burp Suite extension for sending large numbers of HTTP reque
 * https://portswigger.net/bappstore/9abaa233088242e8be252cd4ff534988
 
 # Firefox Browser Extensions (Doesn't Automatically Install)
+### BuiltWith
+BuiltWith is a web site profiler tool. Upon looking up a page, BuiltWith returns a list all the technologies in use on that page that it can find.
+* https://addons.mozilla.org/en-US/firefox/addon/builtwith/
+
 ### Cookie-Editor
 Efficiently create, edit and delete a cookie for the current tab. Perfect for developing, quickly testing or even manually managing your cookies for your privacy.
 * https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/
