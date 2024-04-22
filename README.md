@@ -82,7 +82,7 @@ Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the 
     + [httpx](#httpx)
   * [Spiders](#spiders)
     + [GoSpider is a fast web spider written in Go](#gospider-is-a-fast-web-spider-written-in-go)
-  * [katana](#katana)
+    + [katana](#katana)
     + [hakrawler](#hakrawler)
   * [Subdomain Enumeration and Brute Force](#subdomain-enumeration-and-brute-force)
     + [Altdns](#altdns)
@@ -97,7 +97,7 @@ Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the 
     + [github-subdomains](#github-subdomains)
     + [Gotator](#gotator)
     + [puredns](#puredns)
-  * [REGULATOR](#regulator)
+    + [REGULATOR](#regulator)
     + [Shuffledns](#shuffledns)
     + [shosubgo](#shosubgo-1)
     + [Subfinder](#subfinder)
@@ -166,7 +166,7 @@ Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the 
     + [Error Message Checks](#error-message-checks)
     + [Flow](#flow)
     + [Freddy Deserialization Bug Finder](#freddy-deserialization-bug-finder)
-  * [GAP](#gap)
+    + [GAP](#gap)
     + [GatherContacts](#gathercontacts)
     + [HTTP Request Smuggler](#http-request-smuggler)
     + [IPRotate](#iprotate)
@@ -472,7 +472,7 @@ httpx is a fast and multi-purpose HTTP toolkit that allows running multiple prob
 
 ![Example12](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/b741fa50-f7a9-4cc1-97d4-5dc37e8026bd)
 
-## katana
+### katana
 A next-generation crawling and spidering framework
 * https://github.com/projectdiscovery/katana
 
@@ -557,7 +557,7 @@ puredns is a fast domain resolver and subdomain bruteforcing tool that can accur
 
 ![puredns-terminal](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/63f23c67-331d-47b1-9756-36665b265e5a)
 
-## REGULATOR
+### REGULATOR
 Automated learning of regexes for DNS discovery
 * https://github.com/cramppet/regulator
 
@@ -872,7 +872,7 @@ This extension provides a Proxy history-like view along with search filter capab
 Helps with detecting and exploiting serialization in libraries and APIs.
 * https://portswigger.net/bappstore/ae1cce0c6d6c47528b4af35faebc3ab3
 
-## GAP
+### GAP
 This is an evolution of the original getAllParams extension for Burp. Not only does it find more potential parameters for you to investigate, but it also finds potential links to try these parameters on, and produces a target specific wordlist to use for fuzzing. The full Help documentation can be found here or from the Help icon on the GAP tab.
 * https://github.com/xnl-h4ck3r/GAP-Burp-Extension
 
