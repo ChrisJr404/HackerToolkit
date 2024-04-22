@@ -74,6 +74,50 @@ Scrapes employees from a LinkedIn company page, performs a number of clean up st
 
 ![LinkedIn_Logo svg](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/39fac0d6-a29b-47d1-845c-030252beaaf9)
 
+## Custom Wordlists
+### CeWL
+CeWL is a ruby app which spiders a given URL to a specified depth, optionally following external links, and returns a list of words which can then be used for password crackers such as John the Ripper.
+* https://github.com/digininja/CeWL
+
+![4](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/3215d3bb-3169-4863-9787-2f1a3c66b7e1)
+
+### wordlistgen
+wordlistgen is a tool to pass a list of URLs and get back a list of relevant words for your wordlists. Wordlists are much more effective when you take the application's context into consideration. wordlistgen pulls out URL components, such as subdomain names, paths, query strings, etc. and spits them back to stdout so you can easily add them to your wordlists
+* https://github.com/ameenmaali/wordlistgen
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/e4158b6d-3b9b-4776-b054-5013f9220b18)
+
+## Directory Enumeration
+### Dirsearch
+An advanced web path brute-forcer.
+* https://github.com/maurosoria/dirsearch
+
+![pause](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/ede10f72-21dd-46bb-a42a-2fb8c3b9c205)
+
+### Feroxbuster
+A simple, fast, recursive content discovery tool written in Rust.
+* https://github.com/epi052/feroxbuster
+
+![demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/dafc386f-2f5a-418c-82ac-fe3b4badce8a)
+
+### ffuf
+A fast web fuzzer written in Go.
+* https://github.com/ffuf/ffuf
+
+![68747470733a2f2f61736369696e656d612e6f72672f612f3231313335302e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/f26e61b9-d270-4a05-8ecc-28fd1148ba3c)
+
+### Gobuster
+Gobuster is a tool used to brute-force: URIs (directories and files) in web site, DNS subdomains (with wildcard support), Virtual Host names on target web server, Open Amazon S3 buckets, Open Google Cloud buckets, and TFTP servers.
+* https://github.com/OJ/gobuster
+
+![GoBuster-Directory-File-DNS-Busting-Tool-in-Go-1024x560](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/0feb7647-9bd3-4565-a8b8-7e805e9562cc)
+
+### Wfuzz
+Wfuzz has been created to facilitate the task in web applications assessments and it is based on a simple concept: it replaces any reference to the FUZZ keyword by the value of a given payload. This simple concept allows any input to be injected in any field of an HTTP request, allowing to perform complex web security attacks in different web application components such as: parameters, authentication, forms, directories/files, headers, etc.
+* https://github.com/xmendez/wfuzz
+
+![wfuzz1](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/6b0a8fbd-bb16-4fa1-b052-b6c42401c0c4)
+
 ## Github Enumeration
 ### github-search
 Perform code search through GitHub API. Finds contributors, dorks, employees, endpoints, secrets, subdomains, users, etc. 
@@ -82,6 +126,12 @@ Perform code search through GitHub API. Finds contributors, dorks, employees, en
 ![github-search](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/0a689973-fac3-4e25-9479-c25eae0ca733)
 
 ## Port Scanners (Active)
+### AutoRecon
+AutoRecon is a multi-threaded network reconnaissance tool which performs automated enumeration of services. It is intended as a time-saving tool for use in CTFs and other penetration testing environments (e.g. OSCP). It may also be useful in real-world engagements. The tool works by firstly performing port scans / service detection scans. From those initial results, the tool will launch further enumeration scans of those services using a number of different tools. For example, if HTTP is found, feroxbuster will be launched. Runs curl, dnsrecon, enum4linux, feroxbuster, gobuster, impacket-scripts, nbtscan, nikto, nmap, onesixtyone, oscanner, redis-tools, smbclient, smbmap, snmpwalk, sslscan, svwar, tnscmd10g, whatweb, wkhtmltopdf, etc automatically. 
+* https://github.com/Tib3rius/AutoRecon
+
+![frst-scan](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/526d625e-2a50-439a-a23f-36679e079dd5)
+
 ### Naabu
 Naabu is a port scanning tool written in Go that allows you to enumerate valid ports for hosts in a fast and reliable manner. It is a really simple tool that does fast SYN/CONNECT/UDP scans on the host/list of hosts and lists all ports that return a reply. Most usable port scanner.
 * https://github.com/projectdiscovery/naabu
@@ -273,6 +323,12 @@ This is a port of Wappalyzer in Go. This tool is designed to be performant and a
 * https://github.com/rverton/webanalyze
 
 ![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/601af95f-70dc-428b-8e4b-1a0b661d8885)
+
+### WhatWeb
+WhatWeb identifies websites. Its goal is to answer the question, "What is that Website?". WhatWeb recognises web technologies including content management systems (CMS), blogging platforms, statistic/analytics packages, JavaScript libraries, web servers, and embedded devices. WhatWeb has over 1800 plugins, each to recognise something different. WhatWeb also identifies version numbers, email addresses, account IDs, web framework modules, SQL errors, and more.
+* https://github.com/urbanadventurer/WhatWeb
+
+![whatweb-aggressive1](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/dad37a75-c5f9-4a50-beab-8eeeaa85458f)
 
 # Exploitation
 ## Password Spraying, Stuffing, Brute Forcing, Cracking, etc
