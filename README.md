@@ -47,7 +47,27 @@ Use favicon.ico hashes for finding new assets/IP addresses and technologies owne
 
 ![68747470733a2f2f63646e2d696d616765732d312e6d656469756d2e636f6d2f6d61782f313230302f312a737176314b4c6f354242614c4b5347535577465566772e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2aeb847e-f3fe-4a7f-a653-8b4236c5d391)
 
-## Credential Collection Tools (Emails, usernames, passwords, etc)
+## Archival Enumeration
+### gau
+getallurls (gau) fetches known URLs from AlienVault's Open Threat Exchange, the Wayback Machine, Common Crawl, and URLScan for any given domain. Inspired by Tomnomnom's waybackurls.
+* https://github.com/lc/gau
+
+![25](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/a32b9a37-e4b0-496b-bc4f-1de72b74691a)
+
+### WayMore
+The idea behind waymore is to find even more links from the Wayback Machine than other existing tools. The biggest difference between waymore and other tools is that it can also download the archived responses for URLs on wayback machine so that you can then search these for even more links, developer comments, extra parameters, etc. 
+* https://github.com/xnl-h4ck3r/waymore
+
+![example1](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/b56aa31b-7a10-4c05-95c7-597d044574b9)
+
+## Change Detection
+### changedetection.io
+The best and simplest free open source web page change detection, website watcher, restock monitor and notification service. Restock Monitor, change detection. Designed for simplicity - Simply monitor which websites had a text change for free. Free Open source web page change detection, Website defacement monitoring, Price change notification. Trigger notifications via Discord, Email, Slack, Telegram, API calls and many more. 
+* https://github.com/dgtlmoon/changedetection.io
+
+![screenshot](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/fb368f05-76a9-4052-a98a-714596a217e6)
+
+## Credential Collection Tools (emails, usernames, passwords, etc)
 ### deepdarkCTI
 The aim of this project is to collect the sources, present in the Deep and Dark web, which can be useful in Cyber Threat Intelligence contexts. You can try to infiltrate these communities and make friends in low place, many of which sell leaked credentials.
 * https://github.com/fastfire/deepdarkCTI/tree/main
@@ -124,6 +144,26 @@ Perform code search through GitHub API. Finds contributors, dorks, employees, en
 * https://github.com/gwen001/github-search
 
 ![github-search](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/0a689973-fac3-4e25-9479-c25eae0ca733)
+
+## JavaScript
+### jsluice
+jsluice is a Go package and command-line tool for extracting URLs, paths, secrets, and other interesting data from JavaScript source code.
+* https://github.com/BishopFox/jsluice
+
+![F1NlsesXsAEJsIu](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/8d95fddb-21d9-43b5-8d69-d49557c4c8eb)
+
+### Linkfinder
+LinkFinder is a python script written to discover endpoints and their parameters in JavaScript files. This way penetration testers and bug hunters are able to gather new, hidden endpoints on the websites they are testing. Resulting in new testing ground, possibility containing new vulnerabilities.
+* https://github.com/GerbenJavado/LinkFinder
+
+![62728809-f98b0900-ba1c-11e9-8dd8-67111263a21f](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/81230d6c-0fe4-495c-b81d-9573b817ebeb)
+
+## Mobile App Enumeration
+### APKLeaks
+Scanning APK file for URIs, endpoints & secrets.
+* https://github.com/dwisiswant0/apkleaks
+
+![111927529-a4ade080-8ae3-11eb-800a-b764ab1242e1](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d69e2a36-9f09-4ab5-bdff-291ac11cd883)
 
 ## Port Scanners (Active)
 ### AutoRecon
@@ -238,6 +278,12 @@ httpx is a fast and multi-purpose HTTP toolkit that allows running multiple prob
 
 ![Example12](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/b741fa50-f7a9-4cc1-97d4-5dc37e8026bd)
 
+## katana
+A next-generation crawling and spidering framework
+* https://github.com/projectdiscovery/katana
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/17cdddd4-f5ba-43c1-8449-4cfaadb10339)
+
 ### hakrawler
 Fast golang web crawler for gathering URLs and JavaScript file locations. This is basically a simple implementation of the awesome Gocolly library.
 * https://github.com/hakluke/hakrawler
@@ -263,6 +309,12 @@ The OWASP Amass Project performs network mapping of attack surfaces and external
 
 ![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2d260a63-e529-444d-aadb-7099d59a8b01)
 
+### assetfinder
+Find domains and subdomains potentially related to a given domain.
+* https://github.com/tomnomnom/assetfinder
+
+![Example1min](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/939e97f4-de11-4893-ab67-637a9377fd6f)
+
 ### BBOT
 BBOT (Bighuge BLS OSINT Tool) is a recursive internet scanner inspired by Spiderfoot, but designed to be faster, more reliable, and friendlier to pentesters, bug bounty hunters, and developers.
 * https://github.com/blacklanternsecurity/bbot
@@ -287,17 +339,41 @@ Use favicon.ico hashes for finding new assets/IP addresses and technologies owne
 
 ![68747470733a2f2f63646e2d696d616765732d312e6d656469756d2e636f6d2f6d61782f313230302f312a737176314b4c6f354242614c4b5347535577465566772e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/2aeb847e-f3fe-4a7f-a653-8b4236c5d391)
 
+### Findomain
+Findomain offers a subdomains monitoring service that provides directory fuzzing, port scanning, vulnerability discovery, and more.
+* https://github.com/Findomain/Findomain
+
+![findomain](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/678315dd-a520-4e50-ac4c-c6fc5ae6bb2d)
+
 ### github-subdomains
 This Go tool performs searches on GitHub and parses the results to find subdomains of a given domain. May have to run several times to get complete results.
 * https://github.com/gwen001/github-subdomains
 
 ![preview](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/82c6bbc7-2520-463f-a4a2-73e2687f1924)
 
+### Gotator
+Gotator is a tool to generate DNS wordlists through permutations. 
+* https://github.com/Josue87/gotator
+
+![122590788-510b4e80-d062-11eb-8eb7-9f0a2cf36ea9](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/09d2960b-0942-4249-ac63-d95c76b7cd6f)
+
 ### puredns
 puredns is a fast domain resolver and subdomain bruteforcing tool that can accurately filter out wildcard subdomains and DNS poisoned entries.
 * https://github.com/d3mondev/puredns
 
 ![puredns-terminal](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/63f23c67-331d-47b1-9756-36665b265e5a)
+
+## REGULATOR
+Automated learning of regexes for DNS discovery
+* https://github.com/cramppet/regulator
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/004f27b3-b100-4d56-b7b9-640904b493e2)
+
+### Shuffledns
+massDNS wrapper to bruteforce and resolve the subdomains with wildcard handling support
+* https://github.com/projectdiscovery/shuffledns
+
+![shuffledns-run](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d7a616bf-bb93-4346-a1f8-a240e66dc440)
 
 ### shosubgo
 Small tool to Grab subdomains using Shodan api.
@@ -311,11 +387,11 @@ Subdomain discovery tool that returns valid subdomains for websites, using passi
 
 ![subfinder-run](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/adde8c28-c77a-48b1-84c6-9744c042eec9)
 
-### SubreconGPT
-This (VERY BETA) Python script performs AI-assisted subdomain discovery. It takes a list of subdomains as input, generates similar subdomains using the OpenAI GPT-3 model, and attempts to resolve these subdomains.
-* https://github.com/jhaddix/SubreconGPT
+### Sublist3r
+Sublist3r is a python tool designed to enumerate subdomains of websites using OSINT. It helps penetration testers and bug hunters collect and gather subdomains for the domain they are targeting. Sublist3r enumerates subdomains using many search engines such as Google, Yahoo, Bing, Baidu and Ask. Sublist3r also enumerates subdomains using Netcraft, Virustotal, ThreatCrowd, DNSdumpster and ReverseDNS.
+* https://github.com/aboul3la/Sublist3r
 
-![324197238-19ae48c3-2d04-4e24-a0c7-5e5cd29dfbe8](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/481076b1-8761-4351-92bc-dca5e8fda281)
+![Screenshot_2020-07-06_01-47-21](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d42509dd-cdb7-4c4e-b0af-59c11c2cd798)
 
 ## Web Technology Enumeration
 ### webanalyze
@@ -343,6 +419,39 @@ Due to security assessments of different projects, I found different leaked/expo
 * https://github.com/valeriyshevchenko90/WhereToGo
 
 ![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/ba5930fe-0cac-4bb2-8b06-ead1058dc905)
+
+## Payload Lists
+### Payloads All The Things
+A list of useful payloads and bypasses for Web Application Security. Feel free to improve with your payloads and techniques!
+* https://github.com/swisskyrepo/PayloadsAllTheThings
+
+![banner](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/365bf3af-e65d-41a1-b0da-0c1feb32db5f)
+
+### SecLists
+SecLists is the security tester's companion. It's a collection of multiple types of lists used during security assessments, collected in one place. List types include usernames, passwords, URLs, sensitive data patterns, fuzzing payloads, web shells, and many more. The goal is to enable a security tester to pull this repository onto a new testing box and have access to every type of list that may be needed.
+* https://github.com/danielmiessler/SecLists
+
+![SecLists](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/43446307-91c0-456d-96f6-6ed704bc0609)
+
+## SQL Injection
+### Ghauri
+An advanced cross-platform tool that automates the process of detecting and exploiting SQL injection security flaws.
+* https://github.com/r0oth3x49/ghauri
+
+![193408429-418a75e0-a070-4491-9f92-5799b2509cdf](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/f86f5361-3d42-447d-b10a-9021cc893b25)
+
+### HBSQLI
+HBSQLI is an automated command-line tool for performing Header Based Blind SQL injection attacks on web applications. It automates the process of detecting Header Based Blind SQL injection vulnerabilities, making it easier for security researchers , penetration testers & bug bounty hunters to test the security of web applications. 
+* https://github.com/SAPT01/HBSQLI
+
+![236712050-d4d71f91-9793-4c3e-adcd-b7bdef1ab487](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/bd38ebac-ca5e-4a56-b65f-516debd415a9)
+
+### sqlmap
+sqlmap is an open source penetration testing tool that automates the process of detecting and exploiting SQL injection flaws and taking over of database servers. It comes with a powerful detection engine, many niche features for the ultimate penetration tester, and a broad range of switches including database fingerprinting, over data fetching from the database, accessing the underlying file system, and executing commands on the operating system via out-of-band connections.
+* https://github.com/sqlmapproject/sqlmap
+
+![68747470733a2f2f7261772e6769746875622e636f6d2f77696b692f73716c6d617070726f6a6563742f73716c6d61702f696d616765732f73716c6d61705f73637265656e73686f742e706e67](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/1dee8d4f-5d3a-4239-9602-335a1a4ac307)
+
 ## Vulnerability Scanners
 ### Jaeles
 Jaeles is a powerful, flexible and easily extensible framework written in Go for building your own Web Application Scanner. You can also integrate it into Burp Suite.
@@ -488,6 +597,12 @@ This extension provides a Proxy history-like view along with search filter capab
 Helps with detecting and exploiting serialization in libraries and APIs.
 * https://portswigger.net/bappstore/ae1cce0c6d6c47528b4af35faebc3ab3
 
+## GAP
+This is an evolution of the original getAllParams extension for Burp. Not only does it find more potential parameters for you to investigate, but it also finds potential links to try these parameters on, and produces a target specific wordlist to use for fuzzing. The full Help documentation can be found here or from the Help icon on the GAP tab.
+* https://github.com/xnl-h4ck3r/GAP-Burp-Extension
+
+![tab](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d8adb465-2235-43ef-9850-064d0ade2e3c)
+
 ### GatherContacts
 A Burp Suite Extension to pull Employee Names from Google and Bing LinkedIn Search Results.
 * https://github.com/clr2of8/GatherContacts
@@ -519,6 +634,10 @@ JSON Web Tokens (JWT4B) lets you decode and manipulate JSON web tokens on the fl
 ### Param Miner
 This extension identifies hidden, unlinked parameters. It's particularly useful for finding web cache poisoning vulnerabilities. It combines advanced diffing logic from Backslash Powered Scanner with a binary search technique to guess up to 65,536 param names per request. Param names come from a carefully curated built in wordlist, and it also harvests additional words from all in-scope traffic.
 * https://portswigger.net/bappstore/17d2949a985c4b7ca092728dba871943
+
+### Scavenger
+Burp extension to create target specific and tailored wordlist from burp history.
+* https://github.com/0xDexter0us/Scavenger
 
 ### Software Vulnerability Scanner
 This extension scans for vulnerabilities in detected software versions using the Vulners.com API. 
