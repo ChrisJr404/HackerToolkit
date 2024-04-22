@@ -274,6 +274,40 @@ This is a port of Wappalyzer in Go. This tool is designed to be performant and a
 
 ![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/601af95f-70dc-428b-8e4b-1a0b661d8885)
 
+# Exploitation
+## Password Spraying, Stuffing, Brute Forcing, Cracking, etc
+### CredMaster
+Launch a password spray / brute force attach via Amazon AWS passthrough proxies, shifting the requesting IP address for every authentication attempt. This dynamically creates FireProx APIs for more evasive password sprays.
+* https://github.com/knavesec/CredMaster
+
+![credmaster-default](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/a17b98a7-5da0-448c-8b6c-cfd77282f266)
+
+### WhereToGo
+Due to security assessments of different projects, I found different leaked/exposed accounts on the domain of the organization. But every time it was so difficult to discover the place where I can reuse those credentials and how can I expand my attack surface. I started collecting a list of popular technological services which might have high value in case of improper access. This project should help researchers, pentesters, bounty-hunters to expand the risks of compromised accounts in the corporate environment.
+* https://github.com/valeriyshevchenko90/WhereToGo
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/ba5930fe-0cac-4bb2-8b06-ead1058dc905)
+## Vulnerability Scanners
+### Jaeles
+Jaeles is a powerful, flexible and easily extensible framework written in Go for building your own Web Application Scanner. You can also integrate it into Burp Suite.
+* https://github.com/jaeles-project/jaeles
+
+![jaeles-architecture](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/25fdf104-2c90-4dbe-bfcd-072622847557)
+
+### Nuclei 
+Nuclei is used to send requests across targets based on a template, leading to zero false positives and providing fast scanning on a large number of hosts. Nuclei offers scanning for a variety of protocols, including TCP, DNS, HTTP, SSL, File, Whois, Websocket, Headless, Code etc. With powerful and flexible templating, Nuclei can be used to model all kinds of security checks.
+* https://github.com/projectdiscovery/nuclei
+* https://github.com/AggressiveUser/AllForOne
+* https://github.com/xm1k3/cent
+
+![nuclei-flow](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/103ff11d-c191-4446-88a7-ad45609dc581)
+
+### Retire.js
+There is a plethora of JavaScript libraries for use on the Web and in Node.JS apps out there. This greatly simplifies development,but we need to stay up-to-date on security fixes. "Using Components with Known Vulnerabilities" is now a part of the OWASP Top 10 list of security risks and insecure libraries can pose a huge risk to your Web app. The goal of Retire.js is to help you detect the use of JS-library versions with known vulnerabilities.
+* https://github.com/retirejs/retire.js/
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/8dd7a572-5ceb-4b4a-a79d-29cb9f642391)
+
 # Red Teaming
 ## C2
 ### NimPlant
@@ -306,19 +340,6 @@ ShadowClone allows you to distribute your long running tasks dynamically across 
 * https://github.com/fyoorer/ShadowClone
 
 ![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/80724481-d097-4a29-9514-ba655fda211f)
-
-## Password Spraying, Stuffing, Brute Forcing, Cracking, etc
-### CredMaster
-Launch a password spray / brute force attach via Amazon AWS passthrough proxies, shifting the requesting IP address for every authentication attempt. This dynamically creates FireProx APIs for more evasive password sprays.
-* https://github.com/knavesec/CredMaster
-
-![credmaster-default](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/a17b98a7-5da0-448c-8b6c-cfd77282f266)
-
-### WhereToGo
-Due to security assessments of different projects, I found different leaked/exposed accounts on the domain of the organization. But every time it was so difficult to discover the place where I can reuse those credentials and how can I expand my attack surface. I started collecting a list of popular technological services which might have high value in case of improper access. This project should help researchers, pentesters, bounty-hunters to expand the risks of compromised accounts in the corporate environment.
-* https://github.com/valeriyshevchenko90/WhereToGo
-
-![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/ba5930fe-0cac-4bb2-8b06-ead1058dc905)
 
 ## Phishing/Smishing/Etc
 ### Evilginx 3.0
