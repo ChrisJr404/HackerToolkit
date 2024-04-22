@@ -240,6 +240,12 @@ Directory for Hacxx Underground files (leaked credentials from database)
 
 ![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d59b05cd-8588-4f05-bd55-d962e28913b8)
 
+### linkedin2username
+OSINT Tool: Generate username lists from companies on LinkedIn.
+* https://github.com/initstring/linkedin2username
+
+![drawing](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/0e3fcd55-7754-4cea-a72f-1f4e2900f663)
+
 ### WeakestLink
 Scrapes employees from a LinkedIn company page, performs a number of clean up steps to remove any junk and then generates a range of possible username formats so they can be used in username enumeration and password attacks.
 * https://github.com/shellfarmer/WeakestLink
@@ -297,6 +303,12 @@ Perform code search through GitHub API. Finds contributors, dorks, employees, en
 
 ![github-search](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/0a689973-fac3-4e25-9479-c25eae0ca733)
 
+### GitLeaks
+Gitleaks is a SAST tool for detecting and preventing hardcoded secrets like passwords, api keys, and tokens in git repos. Gitleaks is an easy-to-use, all-in-one solution for detecting secrets, past or present, in your code.
+* https://github.com/gitleaks/gitleaks
+
+![travis_fail](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/8f414393-a1ac-4449-9ca8-07a2881b5ae2)
+
 ## JavaScript
 ### jsluice
 jsluice is a Go package and command-line tool for extracting URLs, paths, secrets, and other interesting data from JavaScript source code.
@@ -323,6 +335,12 @@ AutoRecon is a multi-threaded network reconnaissance tool which performs automat
 * https://github.com/Tib3rius/AutoRecon
 
 ![frst-scan](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/526d625e-2a50-439a-a23f-36679e079dd5)
+
+### MASSCAN
+This is an Internet-scale port scanner. It can scan the entire Internet in under 5 minutes, transmitting 10 million packets per second, from a single machine.
+* https://github.com/robertdavidgraham/masscan
+
+![masscan-examples](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/c7175285-38df-441f-9c7d-65dc2a70f82f)
 
 ### Naabu
 Naabu is a port scanning tool written in Go that allows you to enumerate valid ports for hosts in a fast and reliable manner. It is a really simple tool that does fast SYN/CONNECT/UDP scans on the host/list of hosts and lists all ports that return a reply. Most usable port scanner.
@@ -355,6 +373,10 @@ reconFTW automates the entire process of reconnaissance for you. It outperforms 
 * https://github.com/six2dez/reconftw
 
 ![mindmap_obsidian](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d39f578b-eeeb-4741-a131-efe8de6eae11)
+
+### Recon-ng
+Recon-ng is a full-featured reconnaissance framework designed with the goal of providing a powerful environment to conduct open source web-based reconnaissance quickly and thoroughly.
+* https://github.com/lanmaster53/recon-ng
 
 ### reNgine
 reNgine is your go-to web application reconnaissance suite that's designed to simplify and streamline the reconnaissance process for security professionals, penetration testers, and bug bounty hunters. With its highly configurable engines, data correlation capabilities, continuous monitoring, database-backed reconnaissance data, and an intuitive user interface, reNgine redefines how you gather critical information about your target web applications. 
@@ -559,12 +581,80 @@ WhatWeb identifies websites. Its goal is to answer the question, "What is that W
 ![whatweb-aggressive1](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/dad37a75-c5f9-4a50-beab-8eeeaa85458f)
 
 # Exploitation
+## Active Directory
+### Bloodhound
+BloodHound uses graph theory to reveal the hidden and often unintended relationships within an Active Directory or Azure environment. Attackers can use BloodHound to easily identify highly complex attack paths that would otherwise be impossible to quickly identify. Defenders can use BloodHound to identify and eliminate those same attack paths. Both blue and red teams can use BloodHound to easily gain a deeper understanding of privilege relationships in an Active Directory or Azure environment.
+* https://github.com/BloodHoundAD/BloodHound
+
+![48985201-6f587a00-f105-11e8-8355-98e38e08cc5e](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/f6c595e4-2387-48fe-8cfa-da71be63ed7d)
+
+### Empire
+Empire is a post-exploitation framework that includes a pure-PowerShell2.0 Windows agent, and a pure Python 2.6/2.7 Linux/OS X agent. It is the merge of the previous PowerShell Empire and Python EmPyre projects. The framework offers cryptologically-secure communications and a flexible architecture. On the PowerShell side, Empire implements the ability to run PowerShell agents without needing powershell.exe, rapidly deployable post-exploitation modules ranging from key loggers to Mimikatz, and adaptable communications to evade network detection, all wrapped up in a usability-focused framework.
+* https://github.com/EmpireProject/Empire
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/ce2c65ac-51f4-476b-afae-d049f3fa0b58)
+
+### Powersploit
+PowerSploit is a collection of Microsoft PowerShell modules that can be used to aid penetration testers during all phases of an assessment. PowerSploit is comprised of the following modules and scripts:
+* https://github.com/PowerShellMafia/PowerSploit
+
+![kali](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/10995d43-3639-4d60-806e-06b65befd922)
+
+## Linux Privilege Escalation
+### LinEnum
+Enumerate Linux OS to find privilege escalation
+* https://github.com/rebootuser/LinEnum
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/e1b8ffaf-79c1-4a6e-b144-eee695977be3)
+
+### LinPEAS
+Linux Privilege Escalation Awesome Script
+* https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS
+
+![linpeas](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/47a2a4aa-b28c-4aa9-bc09-b258b8a00d70)
+
+### linuxprivcheck
+Python script for privilege escalation for Linux
+* https://github.com/cervoise/linuxprivcheck
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/f64b7e3f-669e-4664-89a7-123ee95df39b)
+
+### Linuxprivchecker.py
+This script is intended to be executed locally on a Linux box to enumerate basic system info and search for common privilege escalation vectors such as world writable files, misconfigurations, clear-text passwords and applicable exploits.
+* https://github.com/sleventyeleven/linuxprivchecker
+
+![finding-privilege-escalation-flaws-in-linux-by-using-linuxprivchecker-script-and-escalating-privileges-on-a-misconfigured-mysql-database-by-using-user-defined-functions-raptor-udf-18](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/6c75bd11-8795-467e-b68b-756d488b686a)
+
 ## Password Spraying, Stuffing, Brute Forcing, Cracking, etc
 ### CredMaster
 Launch a password spray / brute force attach via Amazon AWS passthrough proxies, shifting the requesting IP address for every authentication attempt. This dynamically creates FireProx APIs for more evasive password sprays.
 * https://github.com/knavesec/CredMaster
 
 ![credmaster-default](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/a17b98a7-5da0-448c-8b6c-cfd77282f266)
+
+### Hashchat
+hashcat is the world's fastest and most advanced password recovery utility, supporting five unique modes of attack for over 300 highly-optimized hashing algorithms. hashcat currently supports CPUs, GPUs, and other hardware accelerators on Linux, Windows, and macOS, and has facilities to help enable distributed password cracking.
+* https://github.com/hashcat/hashcat
+
+![image](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/61534428-1e76-456e-b300-97002d063da7)
+
+### Hydra
+Number one of the biggest security holes are passwords, as every password security study shows. This tool is a proof of concept code, to give researchers and security consultants the possibility to show how easy it would be to gain unauthorized access from remote to a system.
+* https://github.com/vanhauser-thc/thc-hydra
+
+![hydra-4-f](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/d4521428-f527-4416-bf29-648233ea292c)
+
+### John the Ripper
+This is the community-enhanced, "jumbo" version of John the Ripper. It has a lot of code, documentation, and data contributed by jumbo developers and the user community. It is easy for new code to be added to jumbo, and the quality requirements are low, although lately we've started subjecting all contributions to quite some automated testing. This means that you get a lot of functionality that is not necessarily "mature", which in turn means that bugs in this code are to be expected.
+* https://github.com/openwall/john
+
+![John_the_Ripper_example-quick](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/15b1f132-703c-40a8-a9f7-61af0f6d30bb)
+
+### Medusa
+Medusa is a speedy, parallel, and modular, login brute-forcer. The goal is to support as many services which allow remote authentication as possible.
+* https://github.com/jmk-foofus/medusa
+
+![Picture4](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/7ee498e4-433d-4a46-8401-f8baf63098a0)
 
 ### WhereToGo
 Due to security assessments of different projects, I found different leaked/exposed accounts on the domain of the organization. But every time it was so difficult to discover the place where I can reuse those credentials and how can I expand my attack surface. I started collecting a list of popular technological services which might have high value in case of improper access. This project should help researchers, pentesters, bounty-hunters to expand the risks of compromised accounts in the corporate environment.
@@ -584,6 +674,19 @@ SecLists is the security tester's companion. It's a collection of multiple types
 * https://github.com/danielmiessler/SecLists
 
 ![SecLists](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/43446307-91c0-456d-96f6-6ed704bc0609)
+
+## Windows Privilege Escalation
+### WES-NG
+WES-NG is a tool based on the output of Windows' systeminfo utility which provides the list of vulnerabilities the OS is vulnerable to, including any exploits for these vulnerabilities. Every Windows OS between Windows XP and Windows 11, including their Windows Server counterparts, is supported.
+* https://github.com/bitsadmin/wesng
+
+![demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/bc87cc03-bc5a-42a6-9101-b9bd88ebb504)
+
+### winPEAS
+Windows Privilege Escalation Awesome Scripts
+* https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS
+
+![winpeas](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/c5605b24-23b0-43f2-81f9-82b955a5b2de)
 
 ## SQL Injection
 ### Ghauri
