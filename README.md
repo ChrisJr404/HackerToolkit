@@ -963,6 +963,11 @@ PwnFox is a Firefox/Burp extension that provide usefull tools for your security 
 The Shodan plugin tells you where the website is hosted (country, city), who owns the IP and what other services/ ports are open.
 * https://addons.mozilla.org/en-US/firefox/addon/shodan-addon/
 
+### Trufflehog
+The TruffleHog extension looks for API keys and credentials on websites visited, and alerts you if there are any present. This is useful for doing pentests and code reviews, because it helps identify keys that would otherwise either be missed or have to be searched for manually
+* https://addons.mozilla.org/en-US/firefox/addon/trufflehog/
+* https://chromewebstore.google.com/detail/trufflehog/bafhdnhjnlcdbjcdcnafhdcphhnfnhjc
+
 ### Wappalyzer
 Wappalyzer is a browser extension that uncovers the technologies used on websites. It detects content management systems, eCommerce platforms, web servers, JavaScript frameworks, analytics tools and many more.
 * https://addons.mozilla.org/en-US/firefox/addon/wappalyzer/
