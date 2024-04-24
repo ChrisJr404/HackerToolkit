@@ -189,6 +189,7 @@ Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the 
     + [Open Multiple URLs](#open-multiple-urls)
     + [PwnFox](#pwnfox)
     + [Shodan](#shodan)
+    + [Trufflehog](#trufflehog)
     + [Wappalyzer](#wappalyzer)
     + [WhatRuns](#whatruns)
 
