@@ -957,7 +957,7 @@ Opens a list of URLs
 * https://addons.mozilla.org/en-US/firefox/addon/open-multiple-urls/
 
 ### PwnFox
-PwnFox is a Firefox/Burp extension that provide usefull tools for your security audit. Single click BurpProxy, Containers Profiles, PostMessage Logger, Toolbox injection, and Security header remover
+PwnFox is a Firefox/Burp extension that provide useful tools for your security audit. Single click BurpProxy, Containers Profiles, PostMessage Logger, Toolbox injection, and Security header remover
 * https://addons.mozilla.org/en-US/firefox/addon/pwnfox/
 
 ### Shodan
