@@ -117,7 +117,7 @@ Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the 
     + [Linuxprivchecker.py](#linuxprivcheckerpy)
   * [Password Spraying, Stuffing, Brute Forcing, Cracking, etc](#password-spraying-stuffing-brute-forcing-cracking-etc)
     + [CredMaster](#credmaster)
-    + [Hashchat](#hashchat)
+    + [Hashcat](#hashcat)
     + [Hydra](#hydra)
     + [John the Ripper](#john-the-ripper)
     + [Medusa](#medusa)
@@ -653,7 +653,7 @@ Launch a password spray / brute force attach via Amazon AWS passthrough proxies,
 
 ![credmaster-default](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/a17b98a7-5da0-448c-8b6c-cfd77282f266)
 
-### Hashchat
+### Hashcat
 hashcat is the world's fastest and most advanced password recovery utility, supporting five unique modes of attack for over 300 highly-optimized hashing algorithms. hashcat currently supports CPUs, GPUs, and other hardware accelerators on Linux, Windows, and macOS, and has facilities to help enable distributed password cracking.
 * https://github.com/hashcat/hashcat
 

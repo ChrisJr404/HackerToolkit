@@ -4,6 +4,12 @@
 # https://github.com/ChrisJr404/HackerToolkit
 # =============================================================================
 
+# ---- Strict-ish mode ---------------------------------------------------------
+# We don't enable `set -e` because each tool install is allowed to fail
+# independently — the script tracks per-tool status and continues. We do
+# enable -u (catches unset vars) and pipefail (catches pipe-stage failures).
+set -uo pipefail
+
 # ---- Color palette -----------------------------------------------------------
 # Use tput when available; fall back to raw escapes so the script stays portable
 # on minimal containers without ncurses. Disable colors when stdout isn't a TTY
@@ -26,6 +32,69 @@ warn()    { printf '%b %s\n' "${YLL}!${NC}" "$1"; }
 err()     { printf '%b %s\n' "${RED}✗${NC}" "$1"; }
 info()    { printf '%b %s\n' "${BLU}ℹ${NC}" "$1"; }
 
+# safe_cd <dir> — fail loudly if a category dir is missing instead of silently
+# landing the next install in the wrong cwd.
+safe_cd() {
+    cd "$1" 2>/dev/null || { err "cd '$1' failed (cwd=$(pwd))"; exit 1; }
+}
+
+# ---- CLI arg parser ----------------------------------------------------------
+# Flags:
+#   -h, --help              show usage
+#   -l, --list              list all tools (grouped by category) and exit
+#       --only=a,b,c        install only these tools (comma-separated names)
+#       --skip=a,b,c        install everything except these tools
+#       --only-cat=X,Y      install only these categories (e.g. Recon-Frameworks)
+#       --skip-cat=X,Y      skip these categories
+ONLY=""; SKIP=""; ONLY_CAT=""; SKIP_CAT=""; LIST_MODE=0
+usage() {
+    cat <<USAGE
+${BOLD}HackerToolkit installer${NC}
+
+Usage: ./install.sh [OPTIONS]
+
+  -h, --help               Show this help and exit
+  -l, --list               Print every tool grouped by category, then exit
+      --only=a,b,c         Install only these tools (by pck name)
+      --skip=a,b,c         Skip these tools
+      --only-cat=X,Y       Install only these categories
+      --skip-cat=X,Y       Skip these categories
+
+Categories follow the directory names under ./HackerToolkit/, e.g.
+  Enumeration-Recon-Tools  Apex-Domain-Enumeration  Recon-Frameworks
+  Subdomain-Enumeration-and-Brute-Force  Active-Directory  Linux-Privilege-Escalation
+  Windows-Privilege-Escalation  Vulnerability-Scanners  C2  Phishing-Smishing-Etc
+  Stealth  ... (run ${BOLD}--list${NC} to see them all)
+
+Examples:
+  ./install.sh --only=ffuf,gobuster,nuclei
+  ./install.sh --skip-cat=C2,Phishing-Smishing-Etc
+  ./install.sh --only-cat=Subdomain-Enumeration-and-Brute-Force
+USAGE
+}
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|--help)        usage; exit 0;;
+        -l|--list)        LIST_MODE=1;;
+        --only=*)         ONLY="${1#--only=}";;
+        --skip=*)         SKIP="${1#--skip=}";;
+        --only-cat=*)     ONLY_CAT="${1#--only-cat=}";;
+        --skip-cat=*)     SKIP_CAT="${1#--skip-cat=}";;
+        *)                err "unknown flag: $1"; usage; exit 2;;
+    esac
+    shift
+done
+
+# ---- Architecture detection --------------------------------------------------
+# Used by tools that download arch-pinned binaries (mubeng, evilginx, etc.).
+case "$(uname -m)" in
+    x86_64|amd64)   ARCH="amd64";   ARCH_ALT="x86_64";;
+    aarch64|arm64)  ARCH="arm64";   ARCH_ALT="aarch64";;
+    armv7l|armv6l)  ARCH="armv7";   ARCH_ALT="arm";;
+    *)              ARCH="$(uname -m)"; ARCH_ALT="$ARCH";;
+esac
+OS_KERNEL="$(uname -s | tr '[:upper:]' '[:lower:]')"   # linux / darwin
+
 # ---- Dependency check --------------------------------------------------------
 # Returns 0 if the binary already resolves; otherwise installs via apt and
 # returns 1 so callers can branch if needed. Pass arg 2 to override the
@@ -38,6 +107,105 @@ exist(){
             || err "$1 install failed"
         return 1
     fi
+    return 0
+}
+
+# ---- Per-tool install helpers ------------------------------------------------
+# Single-source-of-truth wrapper around the "is it installed already? install
+# it. did it work?" pattern that used to be open-coded in every block. Cuts
+# per-tool boilerplate from ~12 lines to ~3-4.
+#
+# Usage:
+#   pck="ffuf"
+#   if try_install "$pck"; then
+#       go install github.com/ffuf/ffuf/v2@latest
+#       mark_install "$pck"
+#   fi
+#
+# `set_category <Name>` is called at the top of each section so --only-cat /
+# --skip-cat filters work.
+CURRENT_CATEGORY="(none)"
+set_category() {
+    CURRENT_CATEGORY="$1"
+    if [ "$LIST_MODE" = 1 ]; then
+        printf "\n${BOLD}${CYN}━━ %s ━━${NC}\n" "$1"
+    else
+        printf "\n${BOLD}${CYN}━━ %s ━━${NC}\n" "$1"
+    fi
+}
+
+# Membership test that handles whitespace-tolerant comma lists.
+_in_list() {
+    local needle="$1" haystack=",$2,"
+    case "$haystack" in *",$needle,"*) return 0;; esac
+    return 1
+}
+
+# Returns 0 if the caller should proceed with the install body, 1 to skip.
+# Skips if: --only / --skip / --only-cat / --skip-cat exclude it, --list mode,
+# or the binary is already on PATH.
+try_install() {
+    local pck="$1"
+
+    # Filter on category
+    if [ -n "$ONLY_CAT" ] && ! _in_list "$CURRENT_CATEGORY" "$ONLY_CAT"; then return 1; fi
+    if [ -n "$SKIP_CAT" ] &&   _in_list "$CURRENT_CATEGORY" "$SKIP_CAT"; then return 1; fi
+
+    # Filter on tool name
+    if [ -n "$ONLY" ] && ! _in_list "$pck" "$ONLY"; then return 1; fi
+    if [ -n "$SKIP" ] &&   _in_list "$pck" "$SKIP"; then return 1; fi
+
+    if [ "$LIST_MODE" = 1 ]; then
+        printf "  • %s\n" "$pck"
+        return 1
+    fi
+
+    if command -v "$pck" >/dev/null 2>&1; then
+        printf "  ${BLU}↺${NC} ${BOLD}%s${NC} ${DIM}already installed — skipping${NC}\n" "$pck"
+        return 1
+    fi
+
+    printf "  ${YLL}▸${NC} ${BOLD}%s${NC} ${DIM}installing…${NC}\n" "$pck"
+    return 0
+}
+
+# Records based on $? (or explicit second arg) whether the install body succeeded.
+# Captured to install.tmp / not-install.tmp for the final summary tally.
+mark_install() {
+    local pck="$1"
+    local rc="${2:-$?}"
+    if [ "$rc" -eq 0 ]; then
+        printf "  ${GRN}✓${NC} %s ${DIM}installed${NC}\n" "$pck"
+        echo "Installed $pck" >> "$mypath/install.tmp"
+    else
+        printf "  ${RED}✗${NC} %s ${RED}install failed${NC} ${DIM}(rc=%s)${NC}\n" "$pck" "$rc"
+        echo "Not Installed $pck (rc=$rc)" >> "$mypath/not-install.tmp"
+    fi
+}
+
+# Variant of try_install for tools that don't put a binary on PATH — instead
+# the install creates a directory under the current category folder. Skips if
+# the directory already exists.
+try_install_dir() {
+    local pck="$1"
+    local dir="${2:-$pck}"
+
+    if [ -n "$ONLY_CAT" ] && ! _in_list "$CURRENT_CATEGORY" "$ONLY_CAT"; then return 1; fi
+    if [ -n "$SKIP_CAT" ] &&   _in_list "$CURRENT_CATEGORY" "$SKIP_CAT"; then return 1; fi
+    if [ -n "$ONLY" ] && ! _in_list "$pck" "$ONLY"; then return 1; fi
+    if [ -n "$SKIP" ] &&   _in_list "$pck" "$SKIP"; then return 1; fi
+
+    if [ "$LIST_MODE" = 1 ]; then
+        printf "  • %s ${DIM}(directory-tracked)${NC}\n" "$pck"
+        return 1
+    fi
+
+    if [ -d "$dir" ]; then
+        printf "  ${BLU}↺${NC} ${BOLD}%s${NC} ${DIM}directory exists — skipping${NC}\n" "$pck"
+        return 1
+    fi
+
+    printf "  ${YLL}▸${NC} ${BOLD}%s${NC} ${DIM}cloning…${NC}\n" "$pck"
     return 0
 }
 
@@ -62,34 +230,72 @@ ${NC}
    ${DIM}https://github.com/ChrisJr404/HackerToolkit${NC}
 BANNER
 hr
-info "Stay at the keyboard — a few steps need sudo / interactive prompts."
-info "Per-tool log:   ${BOLD}\$mypath/install.tmp${NC} (success) / ${BOLD}\$mypath/not-install.tmp${NC} (failures)"
-info "Total tools managed by this script: ~96 across 30 categories."
+if [ "$LIST_MODE" = 1 ]; then
+    info "${BOLD}--list${NC} active — printing tools without installing."
+elif [ -n "$ONLY" ] || [ -n "$SKIP" ] || [ -n "$ONLY_CAT" ] || [ -n "$SKIP_CAT" ]; then
+    info "Filter active:  ${ONLY:+only=${BOLD}${ONLY}${NC} }${SKIP:+skip=${BOLD}${SKIP}${NC} }${ONLY_CAT:+only-cat=${BOLD}${ONLY_CAT}${NC} }${SKIP_CAT:+skip-cat=${BOLD}${SKIP_CAT}${NC}}"
+else
+    info "Stay at the keyboard — a few steps need sudo / interactive prompts."
+fi
+info "Architecture:   ${BOLD}${OS_KERNEL}/${ARCH}${NC}"
+info "Per-tool log:   install.tmp (success) / not-install.tmp (failures, with rc)"
 hr
-sleep 1
 
-# echo "$mypath---${mypath}"
-# exit 0
+# ---- Pre-flight ----------------------------------------------------------
+# Catch the cheap-to-detect failure modes here so we don't blow up 40 minutes
+# into a half-installed state.
+[ "$LIST_MODE" = 1 ] || hdr "Pre-flight checks"
+preflight_ok=1
 
-# - Delete any previous installation
-# printf "Deleting previous installation in 3 sec...\r"
-# sleep 1
-# printf "Deleting previous installation in 2 sec...\r"
-# sleep 1
-# printf "Deleting previous installation in 1 sec...\r"
-# sleep 1
-# echo ""
+# Linux only — most install blocks shell-out to `apt`. macOS will need ports.
+if [ "$LIST_MODE" != 1 ]; then
+    if [ "$OS_KERNEL" = "linux" ]; then
+        ok "OS: linux"
+    else
+        warn "OS: ${OS_KERNEL} — apt-based blocks will fail; expect partial install."
+    fi
+fi
 
-# - Delete all in HackerToolkit folder
-# rm -rf HackerToolkit
+# Internet
+if [ "$LIST_MODE" != 1 ]; then
+    if curl -sSfI --max-time 5 https://github.com >/dev/null 2>&1 || \
+       wget -q --spider --timeout=5 https://github.com 2>/dev/null; then
+        ok "Internet: github.com reachable"
+    else
+        err "Internet: github.com not reachable — aborting."
+        exit 1
+    fi
+fi
 
+# sudo cached or non-interactive
+if [ "$LIST_MODE" != 1 ]; then
+    if sudo -n true 2>/dev/null; then
+        ok "sudo: cached"
+    else
+        warn "sudo: will prompt for password during apt installs"
+    fi
+fi
+
+# Free disk: need at least 2GB
+if [ "$LIST_MODE" != 1 ]; then
+    free_kb=$(df -Pk . 2>/dev/null | awk 'NR==2 {print $4+0}')
+    if [ "${free_kb:-0}" -ge 2000000 ]; then
+        ok "Disk: $((free_kb / 1024 / 1024))G free"
+    else
+        warn "Disk: only $((${free_kb:-0} / 1024 / 1024))G free — recommend ≥ 2G"
+    fi
+fi
+[ "$LIST_MODE" = 1 ] || hr
 
 # - Main folder
-
-mkdir -p HackerToolkit
 mkdir -p HackerToolkit/.bin
-cd HackerToolkit
-mypath=$(pwd)
+safe_cd HackerToolkit
+mypath="$(pwd)"
+
+# Idempotency: truncate per-tool logs at the start of each run so re-runs
+# don't double-count or carry stale failures from a prior attempt.
+: > "$mypath/install.tmp"
+: > "$mypath/not-install.tmp"
 
 
 PATH="$PATH:$(pwd)/.bin"
@@ -119,55 +325,68 @@ fi
 
 # - Dependencies
 # - If the executable file is found nothing happen
-echo "Stay in front of your keyboard, this is not a completely unattended installation..."
-sleep 2 
-exist git 
-exist wget
-exist gcc
-
-# exist go 
-# - to avoid configures alternatives versions of go
-# - I will use a local version, the lastest on this path
-echo "Local version of go..."
-cd .bin
-if [ ! -e  $mypath/.bin/go1.21.4.linux-amd64.tar.gz ]; then
-    wget https://go.dev/dl/go1.21.4.linux-amd64.tar.gz
-    tar -C . -xzf go1.21.4.linux-amd64.tar.gz
-fi
-go/bin/go version
-# - Only while this script is running
-alias go="$mypath/.bin/go/bin/go"
-# go binaries path
-
-regexGoPath="$HOME/go"
-if [[ "$mypath/.bin/hackertoolkit_bash" =~ $regexHackPath ]];then
-    echo "go PATH found!"
+# In --list mode we skip both the dep installs and the Go bootstrap so the
+# listing is fast and side-effect-free.
+if [ "$LIST_MODE" = 1 ]; then
+    info "Skipping dependency installs (--list mode)"
 else
-    export GOPATH=$HOME/go;
-    echo "export GOPATH=\$HOME/go;" >>$mypath/.bin/hackertoolkit_bash
-    export PATH=$PATH:$HOME/go/bin
-    echo "export PATH=\$PATH:$HOME/go/bin" >>$mypath/.bin/hackertoolkit_bash
-
-    go env -w CGO_ENABLED=1;
+    info "Stay at the keyboard — a few steps need sudo / interactive prompts."
+    sleep 2
+    exist git
+    exist wget
+    exist gcc
 fi
 
+# - Local Go toolchain (latest stable, auto-detected, arch-aware)
+# Avoids fighting with the system package manager's pinned version. We always
+# fetch the latest release tag from go.dev/VERSION?m=text and install under
+# .bin/go/. If the tarball is already cached we skip the download.
+if [ "$LIST_MODE" != 1 ]; then
+    info "Bootstrapping local Go toolchain (${OS_KERNEL}/${ARCH})…"
+    safe_cd .bin
+    GO_VERSION=$(curl -sS --max-time 10 https://go.dev/VERSION?m=text 2>/dev/null | head -1)
+    if [ -z "${GO_VERSION:-}" ] || [[ "$GO_VERSION" != go* ]]; then
+        warn "Could not auto-detect Go version — falling back to go1.24.0"
+        GO_VERSION="go1.24.0"
+    fi
+    GO_TARBALL="${GO_VERSION}.${OS_KERNEL}-${ARCH}.tar.gz"
+    if [ ! -d "$mypath/.bin/go" ]; then
+        if [ ! -e "$mypath/.bin/${GO_TARBALL}" ]; then
+            wget -q --show-progress "https://go.dev/dl/${GO_TARBALL}" || \
+                { err "go download failed for ${GO_TARBALL}"; exit 1; }
+        fi
+        tar -C . -xzf "${GO_TARBALL}"
+    fi
+    "$mypath/.bin/go/bin/go" version
+    alias go="$mypath/.bin/go/bin/go"
 
-cd ..
+    if grep -qF "GOPATH=\$HOME/go" "$mypath/.bin/hackertoolkit_bash" 2>/dev/null; then
+        info "Go PATH already configured."
+    else
+        export GOPATH="$HOME/go"
+        {
+            echo 'export GOPATH=$HOME/go;'
+            echo 'export PATH=$PATH:$HOME/go/bin'
+        } >>"$mypath/.bin/hackertoolkit_bash"
+        export PATH="$PATH:$HOME/go/bin"
+        "$mypath/.bin/go/bin/go" env -w CGO_ENABLED=1
+    fi
 
+    safe_cd ..
 
-exist pip3 "python3-pip"
-exist pipx
-# exist seclists
-exist jq
-exist lolcat
-exist unzip
-exist cargo rust-all
-exist perl
-exist make
-exist realpath coreutils
-exist 7z
-exist rsync
-exist snap snapd
+    exist pip3 "python3-pip"
+    exist pipx
+    exist jq
+    exist lolcat
+    exist unzip
+    exist cargo rust-all
+    exist perl
+    exist make
+    exist realpath coreutils
+    exist 7z
+    exist rsync
+    exist snap snapd
+fi
 
 regexPIPXexPath="$HOME/\.local/bin"
 if [[ "$PATH" =~ $regexPIPXexPath ]];then
@@ -181,72 +400,53 @@ else
 fi
 
 # - Enumeration & Recon Tools
+set_category "Enumeration-Recon-Tools"
 mkdir -p "Enumeration-Recon-Tools"
-cd "Enumeration-Recon-Tools"
-
+safe_cd "Enumeration-Recon-Tools"
 ## Ad & Analytic Trackers
+set_category "Ad-Analytic-Trackers"
 mkdir -p "Ad-Analytic-Trackers"
-cd "Ad-Analytic-Trackers"
-
-echo "Installing ... "
+safe_cd "Ad-Analytic-Trackers"
 
 ### relations.sh
 pck="relations"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget -O $pck https://gist.github.com/hateshape/393ab7003023f3b13126a4892100c8ff
     chmod +x relations.sh
     ln -s $(realpath relations.sh) $mypath/.bin/relations
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-cd ..
+safe_cd ..
 ## Apex Domain Enumeration
+set_category "Apex-Domain-Enumeration"
 mkdir -p "Apex-Domain-Enumeration"
-cd "Apex-Domain-Enumeration"
-
+safe_cd "Apex-Domain-Enumeration"
 ### check_mdi
 # https://github.com/expl0itabl3/check_mdi
 pck="check_mdi"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone 'https://github.com/expl0itabl3/check_mdi.git' --depth 1
     cd check_mdi
     # alias check_mdi="python3 $(pwd)/check_mdi.py" 
     # echo "alias check_mdi=\"python3 $(pwd)/check_mdi.py\"" >>$mypath/.bin/hackertoolkit_bash
     echo  -e "${sh}python3 $(pwd)/check_mdi.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### CloudRecon
 # https://github.com/g0ldencybersec/CloudRecon
 pck="CloudRecon"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     export GOPATH=$HOME/go;
     go env -w CGO_ENABLED=1;
     go install github.com/g0ldencybersec/CloudRecon@latest;
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
 ### FavFreak
 # https://github.com/devanshbatham/FavFreak
 pck="FavFreak"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/devanshbatham/FavFreak.git --depth 1
     cd FavFreak
     pipx install virtualenv
@@ -259,10 +459,10 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias FavFreak=\"$(pwd)/venv/bin/python3 $(pwd)/favfreak.py\"" >>$mypath/.bin/hackertoolkit_bash
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/favfreak.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
+    mark_install "$pck"
     echo 
     deactivate xxx
-    cd ..
+    safe_cd ..
 else
     echo -e "${BLU}$pck${NC} already installed. Skipping..."
 fi
@@ -270,115 +470,81 @@ fi
 
 
 
-cd ..
+safe_cd ..
 ## Archival Enumeration
+set_category "Archival-Enumeration"
 mkdir -p "Archival-Enumeration"
-cd "Archival-Enumeration"
-
+safe_cd "Archival-Enumeration"
 ### gau
 # https://github.com/lc/gau
 pck="gau";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/lc/gau.git --depth 1;
     cd gau/cmd/gau;
     go build;
     # sudo mv gau /usr/local/bin/
     ln -s $(pwd)/gau $mypath/.bin/gau
-    cd ../..
+    safe_cd ../..
     cp .gau.toml $HOME/
     gau --version;
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### waymore
 # https://github.com/xnl-h4ck3r/waymore
 pck="waymore"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     pipx install waymore
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
+    mark_install "$pck"
     echo 
     pipx ensurepath
 else
     echo -e "${BLU}$pck${NC} already installed. Skipping..."
 fi
 
-cd ..
+safe_cd ..
 ## Change Detection
+set_category "Change-Detection"
 mkdir -p "Change-Detection"
-cd "Change-Detection"
-
-
-
+safe_cd "Change-Detection"
 ### changedetection.io
 # https://github.com/dgtlmoon/changedetection.io
 pck="changedetection.io"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     pipx install changedetection.io
     # changedetection.io -d /path/to/empty/data/dir -p 5000
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Credential Collection Tools
+set_category "Credential-Collection-Tools"
 mkdir -p "Credential-Collection-Tools"
-cd "Credential-Collection-Tools"
-
+safe_cd "Credential-Collection-Tools"
 ### deepdarkCTI
 # https://github.com/fastfire/deepdarkCTI/tree/main
 pck="deepdarkCTI"
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/deepdarkCTI" ]; then
+if try_install_dir "$pck" "deepdarkCTI"; then
     git clone 'https://github.com/fastfire/deepdarkCTI.git' --depth 1
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### h8mail
 # https://github.com/khast3x/h8mail
 pck="h8mail"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     pipx install h8mail
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
 ### hacxx-underground
 # https://github.com/hacxx-underground/Files
 pck="hacxx-underground"
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/$pck" ]; then
+if try_install_dir "$pck" "$pck"; then
     git clone 'https://github.com/hacxx-underground/Files.git' hacxx-underground --depth 1
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
 ### linkedin2username
 # https://github.com/initstring/linkedin2username
 pck="linkedin2username";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone 'https://github.com/initstring/linkedin2username.git' --depth 1;
     cd linkedin2username;
     # pipx install -r ./requirements.txt;
@@ -389,19 +555,13 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias linkedin2username=\"$(pwd)/venv/bin/python3 linkedin2username.py\"" >>$mypath/.bin/hackertoolkit_bash;
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkedin2username.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### WeakestLink
 # https://github.com/shellfarmer/WeakestLink
 pck="WeakestLink"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     echo "Copy and paste this link in your firefox web browser to install the plugin"
     echo ""
     echo "https://addons.mozilla.org/en-US/firefox/addon/weakestlink/"
@@ -417,16 +577,15 @@ fi
 
 
 
-cd ..
+safe_cd ..
 ## Custom Wordlists
+set_category "Custom-Wordlists"
 mkdir -p "Custom-Wordlists"
-cd "Custom-Wordlists"
-
+safe_cd "Custom-Wordlists"
 ### CeWL
 # https://github.com/digininja/CeWL
 pck="cewl"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     exist gem ruby-rubygems
     exist gem ruby-dev
     sudo gem install   mime
@@ -443,98 +602,62 @@ if [ -z  "$(which $pck)" ]; then
     # alias cewl="$(pwd)/cewl.rb" ;
     # echo "alias cewl=\"$(pwd)/cewl.rb\"" >>$mypath/.bin/hackertoolkit_bash;
     ln -s $(pwd)/cewl.rb $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### wordlistgen
 # https://github.com/ameenmaali/wordlistgen
 pck="wordlistgen";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     # go get -u github.com/ameenmaali/wordlistgen
     git clone https://github.com/ameenmaali/wordlistgen.git;
     cd wordlistgen/
     go mod init wordlistgen/v3
     go get
     go install
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-cd ..
+safe_cd ..
 ## Directory Enumeration
+set_category "Directory-Enumeration"
 mkdir -p "Directory-Enumeration"
-cd "Directory-Enumeration"
-
+safe_cd "Directory-Enumeration"
 ### dirsearch
 # https://github.com/maurosoria/dirsearch
 pck="dirsearch"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/maurosoria/dirsearch.git --depth 1
     echo  -e "${sh}ls -al dirsearch" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
 ### feroxbuster
 pck="feroxbuster";
 # https://github.com/epi052/feroxbuster
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash
     ln -s $(pwd)/feroxbuster $mypath/.bin/feroxbuster
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
 ### ffuf
 # https://github.com/ffuf/ffuf
 pck="ffuf"
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/ffuf/ffuf/v2@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $mypath/$pck" >>not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### gobuster
 # https://github.com/OJ/gobuster
 pck="gobuster";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/OJ/gobuster/v3@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### wfuzz
 pck="wfuzz";
 # https://github.com/xmendez/wfuzz
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     # pipx install wfuzz
     git clone https://github.com/xmendez/wfuzz.git;
     cd wfuzz;
@@ -546,25 +669,18 @@ if [ -z  "$(which $pck)" ]; then
     # alias wfuzz="$(pwd)/venv/bin/wfuzz " 
     # echo "alias wfuzz=\"$(pwd)/venv/bin/wfuzz \"" >>$mypath/.bin/hackertoolkit_bash
     ln -s $(pwd)/venv/bin/wfuzz $mypath/.bin/wfuzz
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Github Enumeration
+set_category "Github Enumeration"
 mkdir -p "Github Enumeration"
-cd "Github Enumeration"
-
+safe_cd "Github Enumeration"
 ### github-search
 # https://github.com/gwen001/github-search
 pck="github-search";
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/github-search" ]; then
+if try_install_dir "$pck" "github-search"; then
     git clone https://github.com/gwen001/github-search
     cd github-search
     # pip3 install -r requirements.txt
@@ -574,58 +690,37 @@ if [ ! -d  "$(pwd)/github-search" ]; then
     # - this package, like john the ripper has many tools, so it's better add the run path to the system executable PATH
     export PATH="$PATH:$(realpath . )"
     echo "export PATH=\"\$PATH:$(realpath . )\"" >>$mypath/.bin/hackertoolkit_bash
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
-
 ### gitleaks
 # https://github.com/gitleaks/gitleaks
 pck="gitleaks";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/gitleaks/gitleaks.git
     cd gitleaks
     make build
     # make install
     # -Installed on /usr/local/bin/gitleaks
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-cd ..
+safe_cd ..
 ## JavaScript
+set_category "JavaScript"
 mkdir -p "JavaScript"
-cd "JavaScript"
-
+safe_cd "JavaScript"
 ### jsluice
 # https://github.com/BishopFox/jsluice
 pck="jsluice";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/BishopFox/jsluice/cmd/jsluice@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
 ### LinkFinder
 # https://github.com/GerbenJavado/LinkFinder
 pck="linkfinder";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/GerbenJavado/LinkFinder.git --depth 1
     cd LinkFinder;
     # pip3 install -r requirements.txt
@@ -639,46 +734,32 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias linkfinder=\"$(pwd)/venv/bin/python3 linkfinder.py\"" >>$mypath/.bin/hackertoolkit_bash
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkfinder.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Mobile App Enumeration
+set_category "Mobile-App-Enumeration"
 mkdir -p "Mobile-App-Enumeration"
-cd "Mobile-App-Enumeration"
-
+safe_cd "Mobile-App-Enumeration"
 ### apkleaks
 # https://github.com/dwisiswant0/apkleaks
 #  it utilizes jadx
 pck="apkleaks";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     pipx install apkleaks
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Port-Scanners-(Active)
+set_category "Port-Scanners-Active"
 mkdir -p "Port-Scanners-Active"
-cd "Port-Scanners-Active"
-
+safe_cd "Port-Scanners-Active"
 ### AutoRecon
 # https://github.com/Tib3rius/AutoRecon
 pck="autorecon";
-echo "[+] $pck"
 ## tnscmd10g
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     sudo apt -y install curl dnsrecon nbtscan nikto nmap onesixtyone redis-tools smbclient smbmap snmp sslscan sipvicious  whatweb wkhtmltopdf libio-socket-ip-perl default-jre
     sudo snap install enum4linux
     sudo snap install seclists
@@ -690,30 +771,22 @@ if [ -z  "$(which $pck)" ]; then
     chmod +x $(pwd)/oscanner.jar
     ln -s $(pwd)/oscanner.jar $mypath/.bin/oscanner
     pipx install git+https://github.com/Tib3rius/AutoRecon.git
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
-
 ### masscan
 # https://github.com/robertdavidgraham/masscan
 pck="masscan";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     sudo apt-get --assume-yes install git make gcc;
     git clone https://github.com/robertdavidgraham/masscan --depth 1;
     cd masscan;
     make;
     sudo make install;
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
+    mark_install "$pck"
     make clean
     echo 
-    cd ..
+    safe_cd ..
 else
     echo -e "${BLU}$pck${NC} already installed. Skipping..."
 fi
@@ -723,68 +796,48 @@ fi
 ### naabu
 # https://github.com/projectdiscovery/naabu
 pck="naabu";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     sudo apt install -y libpcap-dev
     go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
 ### nmap
 # https://github.com/nmap/nmap
 # - Instaled as dependency of AutoRecon
 pck="nmap";
-echo "[+] $pck"
 nmap -V
-if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
+mark_install "$pck"
 echo 
 
 
 # https://github.com/RustScan/RustScan
 pck="rustscan";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget https://github.com/RustScan/RustScan/releases/download/2.2.2/rustscan_2.2.2_amd64.deb;
     sudo dpkg -i rustscan_2.2.2_amd64.deb;
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo 
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-cd ..
+safe_cd ..
 ## Port-Scanners-(Passive)
+set_category "Port-Scanners-Passive"
 mkdir -p "Port-Scanners-Passive"
-cd "Port-Scanners-Passive"
-
-
+safe_cd "Port-Scanners-Passive"
 # https://github.com/s0md3v/Smap
 pck="smap";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget -O smap.tar.xz https://github.com/s0md3v/Smap/releases/download/0.1.12/smap_0.1.12_linux_amd64.tar.xz
     tar -xf smap.tar.xz
     ln -s $(pwd)/smap_0.1.12_linux_amd64/smap $mypath/.bin/smap
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Recon Frameworks
+set_category "Recon-Frameworks"
 mkdir -p "Recon-Frameworks"
-cd "Recon-Frameworks"
-
-
+safe_cd "Recon-Frameworks"
 # https://github.com/six2dez/reconftw
 pck="reconftw";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/six2dez/reconftw --depth 1;
     cd reconftw/;
     ./install.sh;
@@ -869,20 +922,13 @@ if [ -z  "$(which $pck)" ]; then
     # alias reconftw="$(pwd)/reconftw.sh" 
     #"echo "alias reconftw=\"$(pwd)/reconftw.sh\"" >>$mypath/.bin/hackertoolkit_bash
     ln -s $(pwd)/reconftw.sh $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### recon-ng
 # https://github.com/lanmaster53/recon-ng
 pck="recon-ng";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/lanmaster53/recon-ng.git --depth 1;
     cd recon-ng; 
     python3 -m venv venv;
@@ -897,22 +943,15 @@ if [ -z  "$(which $pck)" ]; then
     ln -s $(pwd)/recon-ng $mypath/.bin/recon-ng
     ln -s $(pwd)/recon-cli $mypath/.bin/recon-cli
     ln -s $(pwd)/recon-web $mypath/.bin/recon-web
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### rengine 
 # https://github.com/yogeshojha/rengine
 # -This package install docker and others 43 packages more, I think they are the same 
 # - of reconftw
 pck="rengine";
-echo "[+] $pck"
-if [ -z  "$(which ${pck}-install)" ]; then
+if try_install_dir "$pck" "rengine"; then
     git clone https://github.com/yogeshojha/rengine --depth 1 
     cd rengine
     # - For posgresql password
@@ -929,25 +968,18 @@ if [ -z  "$(which ${pck}-install)" ]; then
     # if the following command is not executed, it will not currently installed
     # sudo ./install.sh
     ln -s $(pwd)/install.sh $mypath/.bin/${pck}-install
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Shodan Tools
+set_category "Shodan-Tools"
 mkdir -p "Shodan-Tools"
-cd "Shodan-Tools"
-
+safe_cd "Shodan-Tools"
 ### karma_v2
 # https://github.com/Dheerajmadhukar/karma_v2
 pck="karma_v2";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/Dheerajmadhukar/karma_v2.git --depth 1
     # python3 -m pip install shodan mmh3
     if [ -z  "$(which shodan)" ]; then
@@ -956,7 +988,7 @@ if [ -z  "$(which $pck)" ]; then
     cd karma_v2
     chmod +x karma_v2
     ln -s $(pwd)/$pck $mypath/.bin/$pck
-    cd ..
+    safe_cd ..
     go install -v github.com/tomnomnom/httprobe@master
     if [ -z  "$(which Interlace)" ]; then
         git clone https://github.com/codingo/Interlace.git --depth 1
@@ -971,27 +1003,17 @@ if [ -z  "$(which $pck)" ]; then
     fi
     go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
     go install -v github.com/tomnomnom/anew@master
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### shosubgo
 # https://github.com/incogbyte/shosubgo
 pck="shosubgo";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/incogbyte/shosubgo@latest
     # verify inside your $GOPATH the folder "bin", maybe $HOME/go/bin
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
 ### Already installed Smap
 # https://github.com/s0md3v/Smap
 
@@ -999,46 +1021,30 @@ fi
 ### wtfis
 # https://github.com/pirxthepilot/wtfis
 pck="wtfis";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     pipx install wtfis
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
-
-cd ..
+safe_cd ..
 ## Screenshotting
+set_category "Screenshotting"
 mkdir -p "Screenshotting"
-cd "Screenshotting"
-
+safe_cd "Screenshotting"
 ### aquatone
 # https://github.com/michenriksen/aquatone
 pck="aquatone";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget -O aquatone.zip https://github.com/michenriksen/aquatone/releases/download/v1.7.0/aquatone_linux_amd64_1.7.0.zip
     unzip aquatone.zip
     cd aquatone/
     ln -s $(pwd)/aquatone $mypath/.bin/aquatone
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### eyeballer
 # https://github.com/BishopFox/eyeballer
 pck="eyeballer";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/BishopFox/eyeballer.git --depth 1
     cd eyeballer
     python3 -m venv venv
@@ -1048,20 +1054,13 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias eyeballer=\"$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py\"" >>$mypath/.bin/hackertoolkit_bash
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### EyeWitness
 # https://github.com/RedSiege/EyeWitness
 pck="EyeWitness";
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/$pck" ]; then
+if try_install_dir "$pck" "$pck"; then
     git clone https://github.com/RedSiege/EyeWitness.git --depth 1
     if [ $? -eq 0 ]; then echo "Installed $pck: Load $HOME/EyeWitness/EyeWitness.sln into Visual Studio, Go to Build at the top and then Build Solution">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
     echo
@@ -1079,23 +1078,16 @@ fi
 ### go-stare
 # https://github.com/dwisiswant0/go-stare
 pck="go-stare";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget -O go-stare.tar.gz https://github.com/dwisiswant0/go-stare/releases/download/v0.0.3-dev/go-stare_0.0.3-dev_linux_arm64.tar.gz
     tar -C . -xzf go-stare.tar.gz
     ln -s $(pwd)/go-stare $mypath/.bin/go-stare
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### httpscreenshot
 # https://github.com/breenmachine/httpscreenshot
 pck="httpscreenshot";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     sudo apt-get install swig  libssl-dev; # python-dev 
     git clone https://github.com/breenmachine/httpscreenshot.git --depth 1
     cd httpscreenshot
@@ -1106,89 +1098,55 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias httpscreenshot=\"$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py\"" >>$mypath/.bin/hackertoolkit_bash
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### httpx
 # https://github.com/projectdiscovery/httpx
 pck="httpx";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
     # - Installed on $HOME/go/bin
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Spiders
+set_category "Spiders"
 mkdir -p "Spiders"
-cd "Spiders"
-
+safe_cd "Spiders"
 ### gospider
 # https://github.com/jaeles-project/gospider
 pck="gospider";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/jaeles-project/gospider@latest
     # - Installed on $HOME/go/bin
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### katana
 # https://github.com/projectdiscovery/katana
 pck="katana";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/projectdiscovery/katana/cmd/katana@latest
     # - Installed on $HOME/go/bin
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### hakrawler
 # https://github.com/hakluke/hakrawler
 pck="hakrawler";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/hakluke/hakrawler@latest
     # - Installed on $HOME/go/bin
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Subdomain-Enumeration-and-Brute-Force
+set_category "Subdomain-Enumeration-and-Brute-Force"
 mkdir -p "Subdomain-Enumeration-and-Brute-Force"
-cd "Subdomain-Enumeration-and-Brute-Force"
-
-
+safe_cd "Subdomain-Enumeration-and-Brute-Force"
 ### altdns
 # https://github.com/infosec-au/altdns
 pck="altdns";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     # pip3 install py-altdns==1.0.2
     git clone https://github.com/infosec-au/altdns.git --depth 1
     cd altdns
@@ -1200,67 +1158,38 @@ if [ -z  "$(which $pck)" ]; then
     # alias altdns="$(pwd)/venv/bin/altdns" 
     # echo "alias altdns=\"$(pwd)/venv/bin/altdns\"" >>$mypath/.bin/hackertoolkit_bash
     ln -s $(pwd)/venv/bin/altdns $mypath/.bin/altdns
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
 ### alterx
 # https://github.com/projectdiscovery/alterx
 pck="alterx";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/projectdiscovery/alterx/cmd/alterx@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### amass
 # https://github.com/owasp-amass/amass
 pck="amass";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install -v github.com/owasp-amass/amass/v4/...@master
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### assetfinder
 # https://github.com/tomnomnom/assetfinder
 pck="assetfinder";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     # go get -u github.com/tomnomnom/assetfinder
     go install -v github.com/tomnomnom/assetfinder@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### bbot
 # https://github.com/blacklanternsecurity/bbot
 pck="bbot";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     pipx install bbot
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
 ### CloudRecon
 # - Already installed
 # https://github.com/g0ldencybersec/CloudRecon
@@ -1273,8 +1202,7 @@ fi
 ### dnsgen
 # https://github.com/AlephNullSK/dnsgen
 pck="dnsgen";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/AlephNullSK/dnsgen --depth 1
     cd dnsgen/
     if [ -z  "$(which poetry)" ]; then
@@ -1285,14 +1213,9 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias dnsgen=\"poetry run $(pwd)/dnsgen\"" >>$mypath/.bin/hackertoolkit_bash
     echo  -e "${sh}poetry run $(pwd)/dnsgen" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### 
 # - Already installed
 # https://github.com/devanshbatham/FavFreak
@@ -1305,65 +1228,41 @@ fi
 ### Findomain
 # https://github.com/Findomain/Findomain
 pck="findomain";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/findomain/findomain.git;
     cd findomain;
     cargo build --release;
     cp target/release/findomain $mypath/.bin ;
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### github-subdomains
 # https://github.com/gwen001/github-subdomains
 pck="github-subdomains";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/gwen001/github-subdomains@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
 ### gotator
 # https://github.com/Josue87/gotator
 pck="gotator";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/Josue87/gotator@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### puredns
 # https://github.com/d3mondev/puredns
 pck="puredns";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget https://github.com/d3mondev/puredns/releases/download/v2.1.1/puredns-Linux-amd64.tgz;
     tar -C . -xzf puredns-Linux-amd64.tgz;
     ln -s $(realpath puredns) $mypath/.bin/puredns
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### regulator
 # https://github.com/cramppet/regulator
 pck="regulator";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/cramppet/regulator.git --depth 1;
     cd regulator;
     python3 -m venv venv;
@@ -1373,27 +1272,16 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias regulator=\"$(pwd)/venv/bin/python3 $(pwd)/main.py\"" >>$mypath/.bin/hackertoolkit_bash
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/main.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### shuffledns
 # https://github.com/projectdiscovery/shuffledns
 pck="shuffledns";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### shosubgo
 # - Already installed
 # https://github.com/incogbyte/shosubgo
@@ -1405,21 +1293,14 @@ fi
 ### subfinder
 # https://github.com/projectdiscovery/subfinder
 pck="subfinder";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### Sublist3r
 # https://github.com/aboul3la/Sublist3r
 pck="sublist3r";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/aboul3la/Sublist3r.git --depth 1;
     cd Sublist3r;
     python3 -m venv venv;
@@ -1430,101 +1311,67 @@ if [ -z  "$(which $pck)" ]; then
     # alias Sublist3r="$(pwd)/venv/bin/Sublist3r " 
     # echo "alias Sublist3r=\"$(pwd)/venv/bin/Sublist3r \"" >>$mypath/.bin/hackertoolkit_bash
     ln -s $(pwd)/venv/bin/sublist3r $mypath/.bin/sublist3r
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-cd ..
+safe_cd ..
 ## Web-Technology-Enumeration
+set_category "Web-Technology-Enumeration"
 mkdir -p "Web-Technology-Enumeration"
-cd "Web-Technology-Enumeration"
-
+safe_cd "Web-Technology-Enumeration"
 ### webanalyze
 # https://github.com/rverton/webanalyze
 pck="webanalyze";
-echo "[+] $pck" ;
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget -O $pck.tar.gz https://github.com/rverton/webanalyze/releases/download/v0.4.1/webanalyze_Linux_x86_64.tar.gz;
     tar -C . -xzf $pck.tar.gz;
     ln -s $(realpath webanalyze) $mypath/.bin/webanalyze
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
 ### WhatWeb
 # https://github.com/urbanadventurer/WhatWeb
 pck="whatweb";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     sudo apt -y install whatweb
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-cd ..
+safe_cd ..
 # Exploitation
+set_category "Exploitation"
 mkdir -p "Exploitation"
-cd "Exploitation"
-
-
+safe_cd "Exploitation"
 ## Active-Directory
+set_category "Active-Directory"
 mkdir -p "Active-Directory"
-cd "Active-Directory"
-
-
-
-
+safe_cd "Active-Directory"
 ### BloodHound
 # https://github.com/BloodHoundAD/BloodHound
 pck="BloodHound";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget https://github.com/BloodHoundAD/BloodHound/releases/download/v4.3.1/BloodHound-linux-x64.zip;
     unzip BloodHound-linux-x64.zip;
     cd BloodHound-linux-x64
     ln -s $(realpath BloodHound ) $mypath/.bin/BloodHound 
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### Empire
 # - This package is no longer support
 # https://github.com/EmpireProject/Empire
 pck="empire";
-echo "[+] $pck";
-if [ -z  "$(which ${pck}-install.sh)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/EmpireProject/Empire.git --depth 1;
     cd Empire;
     # sudo ./setup/install.sh;
     chmod +x setup/install.sh;
      ln -s $(realpath setup/install.sh ) $mypath/.bin/empire-install.sh 
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
 ### PowerSploit
 # https://github.com/PowerShellMafia/PowerSploit
 pck="PowerSploit";
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/$pck" ]; then
+if try_install_dir "$pck" "$pck"; then
     source /etc/os-release;
     wget -q https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb;
     sudo dpkg -i packages-microsoft-prod.deb;
@@ -1534,58 +1381,38 @@ if [ ! -d  "$(pwd)/$pck" ]; then
     wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.2/powershell_7.4.2-1.deb_amd64.deb
     sudo dpkg -i powershell_7.4.2-1.deb_amd64.deb
     git clone https://github.com/PowerShellMafia/PowerSploit.git --depth 1
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-cd ..
+safe_cd ..
 ## Linux-Privilege-Escalation
+set_category "Linux-Privilege-Escalation"
 mkdir -p "Linux-Privilege-Escalation"
-cd "Linux-Privilege-Escalation"
-
-
+safe_cd "Linux-Privilege-Escalation"
 ### LinEnum
 # https://github.com/rebootuser/LinEnum
 pck="LinEnum";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/rebootuser/LinEnum.git --depth 1
     cd LinEnum
     ln -s $(realpath LinEnum.sh ) $mypath/.bin/LinEnum 
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### linPEAS
 # https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS
 # - This package installed the tool and inmediately run it
 pck="linpeas";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     # curl -L https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh | sh
     curl https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh >linpeas.sh
     chmod +x linpeas.sh
     ln -s $(realpath linpeas.sh ) $mypath/.bin/linpeas 
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
 ### linuxprivcheck
 # https://github.com/cervoise/linuxprivcheck
 pck="linuxprivchecker3";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     if [ -z  "$(which pyinstaller)" ]; then
         pipx install pyinstaller;
     fi
@@ -1594,38 +1421,25 @@ if [ -z  "$(which $pck)" ]; then
     # python3 -m PyInstaller --onefile linuxprivchecker3.py;
     pyinstaller --onefile linuxprivchecker3.py;
     ln -s $(realpath dist/linuxprivchecker3 ) $mypath/.bin/linuxprivchecker3
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
 ### linuxprivchecker
 # https://github.com/sleventyeleven/linuxprivchecker
 pck="linuxprivchecker";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     pipx install linuxprivchecker
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-cd ..
+safe_cd ..
 ## Password-Spraying-Stuffing-Brute-Forcing-Cracking
+set_category "Password-Spraying-Stuffing-Brute-Forcing-Cracking"
 mkdir -p "Password-Spraying-Stuffing-Brute-Forcing-Cracking"
-cd "Password-Spraying-Stuffing-Brute-Forcing-Cracking"
-
-
-
+safe_cd "Password-Spraying-Stuffing-Brute-Forcing-Cracking"
 ### CredMaster
 # https://github.com/knavesec/CredMaster
 pck="CredMaster";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/knavesec/CredMaster.git --depth 1
     cd CredMaster
     python3 -m venv venv;
@@ -1637,32 +1451,22 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias CredMaster=\"$(pwd)/venv/bin/python3 $(pwd)/credmaster.py \"" >>$mypath/.bin/hackertoolkit_bash
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/credmaster.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
 ### hashcat
 # https://github.com/hashcat/hashcat
 pck="hashcat";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget -O hashcat.7z https://hashcat.net/files/hashcat-6.2.6.7z;
     7z x hashcat.7z;
     ln -s $(realpath hashcat-6.2.6/hashcat.bin ) $mypath/.bin/hashcat
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### thc-hydra
 # https://github.com/vanhauser-thc/thc-hydra
 pck="hydra-wizard";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     apt-get install libssl-dev libssh-dev libidn11-dev libpcre3-dev \
                     libgtk2.0-dev libmysqlclient-dev libpq-dev libsvn-dev \
                     firebird-dev libmemcached-dev libgpg-error-dev \
@@ -1677,10 +1481,10 @@ if [ -z  "$(which $pck)" ]; then
     ln -s $(realpath hydra-wizard.sh ) $mypath/.bin/hydra-wizard
     ln -s $(realpath pw-inspector ) $mypath/.bin/pw-inspector
     ln -s $(realpath dpl4hydra.sh ) $mypath/.bin/dpl4hydra
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
+    mark_install "$pck"
     make clean
     echo
-    cd ..
+    safe_cd ..
 else
     echo -e "${BLU}$pck${NC} already installed. Skipping..."
 fi
@@ -1690,27 +1494,23 @@ fi
 ### john the ripper jumbo
 # https://github.com/openwall/john
 pck="john";
-echo "[+] $pck the ripper jumbo";
-if [ -z  "$(which $pck)" ];then
+if try_install "$pck"; then
     if [ ! -f  "john/run/john" ]; then
         sudo apt install nss-passwords libkrb5-dev libgmp-dev libbz2-1.0 libbz2-dev;
         git clone https://github.com/openwall/john.git --depth 1;
         cd john/src;
         ./configure && make;
         make install
-        cd ..
+        safe_cd ..
         # ln -s $(realpath run/john ) $mypath/.bin/john
         # - john has many tools, so it's better add the run path to the system executable PATH
         export PATH="$PATH:$(realpath run/ )"
         echo "export PATH=\"\$PATH:$(realpath run/ )\"" >>$mypath/.bin/hackertoolkit_bash
         source $(realpath run/john.bash_completion)
         source $(realpath run/john.bash_completion) >>$mypath/.bin/hackertoolkit_bash
-        if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-        echo
-        cd ..
-    else
-        echo -e "${BLU}$pck${NC} already installed. Skipping..."
-    fi
+        safe_cd ..
+        mark_install "$pck"
+fi
 else
     echo -e "${BLU}$pck${NC} already installed. Skipping..."
 fi
@@ -1718,16 +1518,15 @@ fi
 ### medusa
 # https://github.com/jmk-foofus/medusa
 pck="medusa";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/jmk-foofus/medusa.git --depth 1;
     cd medusa;
     ./configure --prefix=$(pwd) --exec-prefix=$(pwd) && make  && make install ;
     ln -s $(realpath bin/medusa ) $mypath/.bin/medusa
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
+    mark_install "$pck"
     make clean
     echo
-    cd ..
+    safe_cd ..
 else
     echo -e "${BLU}$pck${NC} already installed. Skipping..."
 fi
@@ -1735,102 +1534,69 @@ fi
 ### WhereToGo
 # https://github.com/valeriyshevchenko90/WhereToGo
 pck="WhereToGo";
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/$pck" ]; then
+if try_install_dir "$pck" "$pck"; then
     git clone https://github.com/valeriyshevchenko90/WhereToGo.git --depth 1
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-cd ..
+safe_cd ..
 ## Payload-Lists
+set_category "Payload-Lists"
 mkdir -p "Payload-Lists"
-cd "Payload-Lists"
-
-
+safe_cd "Payload-Lists"
 ### PayloadsAllTheThings
 # https://github.com/swisskyrepo/PayloadsAllTheThings
 pck="PayloadsAllTheThings";
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/$pck" ]; then
+if try_install_dir "$pck" "$pck"; then
     git clone https://github.com/swisskyrepo/PayloadsAllTheThings.git --depth 1
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### SecLists
 # - This package has been installed by AutoRecon
 # https://github.com/danielmiessler/SecLists
 pck="SecLists";
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/SecLists" ]; then
+if try_install_dir "$pck" "SecLists"; then
     git clone --depth 1 https://github.com/danielmiessler/SecLists.git --depth 1
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-cd ..
+safe_cd ..
 ## Windows-Privilege-Escalation
+set_category "Windows-Privilege-Escalation"
 mkdir -p "Windows-Privilege-Escalation"
-cd "Windows-Privilege-Escalation"
-
+safe_cd "Windows-Privilege-Escalation"
 ### wesng
 # https://github.com/bitsadmin/wesng
 pck="wesng";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/bitsadmin/wesng --depth 1;
     cd wesng;
     # alias wes.py="python3 $(pwd)/wes.py " ;
     # echo "alias wes.py=\"python3 $(pwd)/wes.py \"" >>$mypath/.bin/hackertoolkit_bash;
     echo  -e "${sh}python3 $(pwd)/wes.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### winPEAS
 # https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS
 pck="winPEAS";
-echo "[+] $pck";
-if [ ! -d  "$(pwd)/winPEAS" ]; then
+if try_install_dir "$pck" "winPEAS"; then
     mkdir -p winPEAS;
     cd winPEAS;
     wget https://github.com/peass-ng/PEASS-ng/releases/download/20240421-825f642d/winPEAS.bat;
     wget https://github.com/peass-ng/PEASS-ng/releases/download/20240421-825f642d/winPEASx64.exe;
     wget https://github.com/peass-ng/PEASS-ng/releases/download/20240421-825f642d/winPEASx64_ofs.exe;
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## SQL-Injection
+set_category "SQL-Injection"
 mkdir -p "SQL-Injection"
-cd "SQL-Injection"
-
-
+safe_cd "SQL-Injection"
 ### ghauri
 # https://github.com/r0oth3x49/ghauri
 pck="ghauri";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/r0oth3x49/ghauri.git --depth 1;
     cd ghauri;
     python3 -m venv venv;
@@ -1841,19 +1607,13 @@ if [ -z  "$(which $pck)" ]; then
     # alias ghauri="$(pwd)/venv/bin/ghauri" ;
     # echo "alias ghauri=\"$(pwd)/venv/bin/ghauri\"" >>$mypath/.bin/hackertoolkit_bash;
     ln -s $(pwd)/venv/bin/ghauri $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### HBSQLI
 # https://github.com/SAPT01/HBSQLI
 pck="hbsqli";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/SAPT01/HBSQLI.git --depth 1;
     cd HBSQLI;
     python3 -m venv venv;
@@ -1863,52 +1623,34 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias hbsqli=\"$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py\"" >>$mypath/.bin/hackertoolkit_bash;
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
 ### sqlmap
 # https://github.com/sqlmapproject/sqlmap
 pck="sqlmap";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git sqlmap-dev 
     cd sqlmap-dev
     # alias sqlmap="python3 $(pwd)/sqlmap.py" ;
     # echo "alias sqlmap=\"python3 $(pwd)/sqlmap.py\"" >>$mypath/.bin/hackertoolkit_bash;
     echo  -e "${sh}python3 $(pwd)/sqlmap.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Vulnerability-Scanners
+set_category "Vulnerability-Scanners"
 mkdir -p "Vulnerability-Scanners"
-cd "Vulnerability-Scanners"
-
-
+safe_cd "Vulnerability-Scanners"
 ### jaeles
 # https://github.com/jaeles-project/jaeles
 pck="jaeles";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install github.com/jaeles-project/jaeles@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### nuclei
 # Already installed
 # https://github.com/projectdiscovery/nuclei
@@ -1921,8 +1663,7 @@ fi
 ### AllForOne
 # https://github.com/AggressiveUser/AllForOne
 pck="AllForOne";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/AggressiveUser/AllForOne.git --depth 1;
     cd AllForOne;
     python3 -m venv venv;
@@ -1932,59 +1673,39 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias AllForOne=\"$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py\"" >>$mypath/.bin/hackertoolkit_bash;
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-
 ### cent
 # https://github.com/xm1k3/cent
 pck="cent";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install -v github.com/xm1k3/cent@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### retire.js
 # https://github.com/retirejs/retire.js/
 pck="retire";
-echo "[+] ${pck}.js"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash;
     nvm install 16 2>/dev/null;
     npm install -g retire;
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-cd ..
-cd ..
+safe_cd ..
+safe_cd ..
 # Red-Teaming
+set_category "Red-Teaming"
 mkdir -p "Red-Teaming"
-cd "Red-Teaming"
-
+safe_cd "Red-Teaming"
 ## C2
+set_category "C2"
 mkdir -p "C2"
-cd "C2"
-
-
+safe_cd "C2"
 ### NimPlant
 # https://github.com/chvancooten/NimPlant
 pck="NimPlant";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     sudo apt install mingw-w64;
     git clone https://github.com/chvancooten/NimPlant.git --depth 1;
     cd NimPlant;
@@ -2000,72 +1721,49 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias NimPlant=\"$(pwd)/server/venv/bin/python3 $(pwd)/NimPlant.py\"" >>$mypath/.bin/hackertoolkit_bash;
     echo  -e "${sh}$(pwd)/server/venv/bin/python3 $(pwd)/NimPlant.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    safe_cd ..
+    mark_install "$pck"
 fi
-
 ### SharpC2
 # https://github.com/rasta-mouse/SharpC2
 pck="SharpC2";
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/SharpC2" ]; then
+if try_install_dir "$pck" "SharpC2"; then
     git clone https://github.com/rasta-mouse/SharpC2.git --depth 1
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-cd ..
+safe_cd ..
 ## Distribution
+set_category "Distribution"
 mkdir -p "Distribution"
-cd "Distribution"
-
-
+safe_cd "Distribution"
 ### axiom
 # - This package will install a lot of things
 # - and it needs user or token or password from
 # - (aws, azure, do, ibm, linode)
 # https://github.com/pry0cc/axiom
 pck="axiom";
-echo "[+] $pck"
-if [ -z  "$(which ${pck}-install.sh)" ]; then
+if try_install "$pck"; then
     sudo apt install packer fzf;
     sudo snap install doctl;
     # bash <(curl -s https://raw.githubusercontent.com/pry0cc/axiom/master/interact/axiom-configure);
     wget -O axiom-install.sh https://raw.githubusercontent.com/pry0cc/axiom/master/interact/axiom-configure;
     chmod +x axiom-install.sh
     ln -s $(pwd)/axiom-install.sh $mypath/.bin/axiom-install.sh
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### fleex
 # https://github.com/FleexSecurity/fleex
 pck="fleex";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     go install -v github.com/FleexSecurity/fleex@latest
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### ShadowClone
 # https://github.com/fyoorer/ShadowClone
 # -It needs Docker
 pck="ShadowClone";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/fyoorer/ShadowClone.git --depth 1;
     cd ShadowClone;
     python3 -m venv venv;
@@ -2075,79 +1773,54 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias ShadowClone=\"$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py\"" >>$mypath/.bin/hackertoolkit_bash;
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
-cd ..
+safe_cd ..
 ## Phishing-Smishing-Etc
+set_category "Phishing-Smishing-Etc"
 mkdir -p "Phishing-Smishing-Etc"
-cd "Phishing-Smishing-Etc"
-
-
-
+safe_cd "Phishing-Smishing-Etc"
 ### evilginx2
 # https://github.com/kgretzky/evilginx2
 pck="evilginx";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget https://github.com/kgretzky/evilginx2/releases/download/v3.3.0/evilginx-v3.3.0-linux-64bit.zip;
     unzip evilginx-v3.3.0-linux-64bit.zip;
     chmod +x evilginx
     ln -s $(realpath evilginx ) $mypath/.bin/evilginx
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
 ### gophish
 # https://github.com/gophish/gophish
 pck="gophish";
-echo "[+] $pck";
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget https://github.com/gophish/gophish/releases/download/v0.12.1/gophish-v0.12.1-linux-64bit.zip;
     unzip gophish-v0.12.1-linux-64bit;
     chmod +x gophish;
     ln -s $(realpath gophish ) $mypath/.bin/gophish
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
-
-cd ..
+safe_cd ..
 ## Stealth
+set_category "Stealth"
 mkdir -p "Stealth"
-cd "Stealth"
-
+safe_cd "Stealth"
 ### evilgophish
 # https://github.com/fin3ss3g0d/evilgophish
 pck="evilgophish";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/fin3ss3g0d/evilgophish.git --depth 1;
     cd evilgophish/
     chmod +x setup.sh;
     ln -s $(realpath setup.sh ) $mypath/.bin/evilgophish
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
 ### fireprox
 # https://github.com/ustayready/fireprox
 pck="fire";
-echo "[+] ${pck}prox"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     git clone https://github.com/ustayready/fireprox --depth 1
     cd fireprox
     python3 -m venv venv;
@@ -2157,48 +1830,32 @@ if [ -z  "$(which $pck)" ]; then
     # echo "alias fire=\"$(pwd)/venv/bin/python3 $(pwd)/fire.py\"" >>$mypath/.bin/hackertoolkit_bash;
     echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/fire.py" > $mypath/.bin/$pck
     chmod +x $mypath/.bin/$pck
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
-
 ### mubeng
 # https://github.com/kitabisa/mubeng
 pck="mubeng";
-echo "[+] $pck"
-if [ -z  "$(which $pck)" ]; then
+if try_install "$pck"; then
     wget -O mubeng https://github.com/kitabisa/mubeng/releases/download/v0.14.2/mubeng_0.14.2_linux_amd64
     chmod +x mubeng
     ln -s $(realpath mubeng ) $mypath/.bin/mubeng
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    mark_install "$pck"
 fi
-
-
 ### proxycannon-ng
 # https://github.com/proxycannon/proxycannon-ng
 # - This package modify the behavior of networking of this machine
 # - using iptables, ip rules and  sysctl commands, so if you have
 # network issues you have to restart your machine
 pck="proxycannon-ng";
-echo "[+] $pck"
-if [ ! -d  "$(pwd)/proxycannon-ng" ]; then
+if try_install_dir "$pck" "proxycannon-ng"; then
     sudo apt install openvpn easy-rsa iptables
     git clone https://github.com/proxycannon/proxycannon-ng.git --depth 1;
     cd proxycannon-ng/setup
     # sudo bash install.sh
-    if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
-    echo
-    cd ..
-else
-    echo -e "${BLU}$pck${NC} already installed. Skipping..."
+    safe_cd ..
+    mark_install "$pck"
 fi
-
 # =============================================================================
 # Wire HackerToolkit into the user's shell so all .bin/* shims resolve next time
 # =============================================================================
@@ -2216,8 +1873,17 @@ cd "$mypath" 2>/dev/null
 # Tally what actually landed (one-line each in install.tmp / not-install.tmp)
 INSTALLED_COUNT=0
 FAILED_COUNT=0
-[ -f install.tmp ]      && INSTALLED_COUNT=$(grep -c '^Installed '   install.tmp     2>/dev/null || echo 0)
-[ -f not-install.tmp ]  && FAILED_COUNT=$(grep -c '^Not Installed '  not-install.tmp 2>/dev/null || echo 0)
+# grep -c returns rc=1 on zero matches but still prints "0"; the previous
+# `|| echo 0` chain produced a multi-line "0\n0" string that broke the
+# `[ ... -gt 0 ]` integer test below.
+if [ -f install.tmp ]; then
+    INSTALLED_COUNT=$(grep -c '^Installed ' install.tmp 2>/dev/null || true)
+    INSTALLED_COUNT=${INSTALLED_COUNT:-0}
+fi
+if [ -f not-install.tmp ]; then
+    FAILED_COUNT=$(grep -c '^Not Installed ' not-install.tmp 2>/dev/null || true)
+    FAILED_COUNT=${FAILED_COUNT:-0}
+fi
 
 echo
 hr
