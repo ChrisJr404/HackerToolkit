@@ -1,26 +1,72 @@
 #!/bin/bash
+# =============================================================================
+# HackerToolkit installer — penetration testing, red teaming, bug bounty
+# https://github.com/ChrisJr404/HackerToolkit
+# =============================================================================
 
-# - Function for checking dependencies
-exist(){
-    e=$(whereis $1 | awk '{print $2}')
-    if [ "$e" == "" ]; then
-        echo "$1 is not found" 
-        echo "Installing dependencies..."
-        if [ -z "$2" ]; then
-            sudo apt -y install $1
-        else
-            sudo apt -y install $2
-        fi
-        return 1
-    else
-        return 0
-    fi
-}
-YLL='\033[1;33m'
-RED='\033[0;31m'
-BLU='\033[1;34m'
-NC='\033[0m' # No Color
+# ---- Color palette -----------------------------------------------------------
+# Use tput when available; fall back to raw escapes so the script stays portable
+# on minimal containers without ncurses. Disable colors when stdout isn't a TTY
+# (CI, redirected log files) so the output stays grep-friendly.
+if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+    BOLD=$(tput bold);   DIM=$(tput dim)
+    RED=$(tput setaf 1); GRN=$(tput setaf 2); YLL=$(tput setaf 3)
+    BLU=$(tput setaf 4); MAG=$(tput setaf 5); CYN=$(tput setaf 6); WHT=$(tput setaf 7)
+    NC=$(tput sgr0)
+else
+    BOLD=''; DIM=''; RED=''; GRN=''; YLL=''; BLU=''; MAG=''; CYN=''; WHT=''; NC=''
+fi
 sh='#!/bin/bash\n'
+
+# ---- Pretty-print helpers ----------------------------------------------------
+hr()      { printf '%b\n' "${DIM}$(printf '─%.0s' $(seq 1 78))${NC}"; }
+hdr()     { printf '\n%b\n' "${BOLD}${CYN}❯ $1${NC}"; hr; }
+ok()      { printf '%b %s\n' "${GRN}✓${NC}" "$1"; }
+warn()    { printf '%b %s\n' "${YLL}!${NC}" "$1"; }
+err()     { printf '%b %s\n' "${RED}✗${NC}" "$1"; }
+info()    { printf '%b %s\n' "${BLU}ℹ${NC}" "$1"; }
+
+# ---- Dependency check --------------------------------------------------------
+# Returns 0 if the binary already resolves; otherwise installs via apt and
+# returns 1 so callers can branch if needed. Pass arg 2 to override the
+# package name when it differs from the binary (e.g. exist 7z p7zip-full).
+exist(){
+    if [ -z "$(command -v "$1" 2>/dev/null)" ]; then
+        warn "$1 not found — installing"
+        sudo apt -y install "${2:-$1}" >/dev/null 2>&1 \
+            && ok "$1 installed" \
+            || err "$1 install failed"
+        return 1
+    fi
+    return 0
+}
+
+# ---- Banner ------------------------------------------------------------------
+clear 2>/dev/null || true
+cat <<BANNER
+${BOLD}${CYN}
+   ██╗  ██╗ █████╗  ██████╗██╗  ██╗███████╗██████╗
+   ██║  ██║██╔══██╗██╔════╝██║ ██╔╝██╔════╝██╔══██╗
+   ███████║███████║██║     █████╔╝ █████╗  ██████╔╝
+   ██╔══██║██╔══██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗
+   ██║  ██║██║  ██║╚██████╗██║  ██╗███████╗██║  ██║
+   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
+        ${MAG}████████╗ ██████╗  ██████╗ ██╗     ██╗  ██╗██╗████████╗
+        ╚══██╔══╝██╔═══██╗██╔═══██╗██║     ██║ ██╔╝██║╚══██╔══╝
+           ██║   ██║   ██║██║   ██║██║     █████╔╝ ██║   ██║
+           ██║   ██║   ██║██║   ██║██║     ██╔═██╗ ██║   ██║
+           ██║   ╚██████╔╝╚██████╔╝███████╗██║  ██╗██║   ██║
+           ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝   ╚═╝
+${NC}
+   ${BOLD}Comprehensive Pentest / Red Team / Bug-Bounty Suite${NC}
+   ${DIM}https://github.com/ChrisJr404/HackerToolkit${NC}
+BANNER
+hr
+info "Stay at the keyboard — a few steps need sudo / interactive prompts."
+info "Per-tool log:   ${BOLD}\$mypath/install.tmp${NC} (success) / ${BOLD}\$mypath/not-install.tmp${NC} (failures)"
+info "Total tools managed by this script: ~96 across 30 categories."
+hr
+sleep 1
 
 # echo "$mypath---${mypath}"
 # exit 0
@@ -2126,7 +2172,7 @@ echo "[+] $pck"
 if [ -z  "$(which $pck)" ]; then
     wget -O mubeng https://github.com/kitabisa/mubeng/releases/download/v0.14.2/mubeng_0.14.2_linux_amd64
     chmod +x mubeng
-    ln -s $(realpath smubeng ) $mypath/.bin/mubeng
+    ln -s $(realpath mubeng ) $mypath/.bin/mubeng
     if [ $? -eq 0 ]; then echo -e "Installed ${YLL}$pck${NC}";echo "Installed $pck">>$mypath/install.tmp; else echo "Not Installed $pck">>$mypath/not-install.tmp; fi
     echo
 else
@@ -2153,8 +2199,91 @@ else
     echo -e "${BLU}$pck${NC} already installed. Skipping..."
 fi
 
-source $mypath/.bin/hackertoolkit_bash
-echo "source $mypath/.bin/hackertoolkit_bash" >>$HOME/.bashrc
+# =============================================================================
+# Wire HackerToolkit into the user's shell so all .bin/* shims resolve next time
+# =============================================================================
+source "$mypath/.bin/hackertoolkit_bash"
+if ! grep -qF "source $mypath/.bin/hackertoolkit_bash" "$HOME/.bashrc" 2>/dev/null; then
+    printf '\n# HackerToolkit\nsource %s/.bin/hackertoolkit_bash\n' "$mypath" >>"$HOME/.bashrc"
+fi
 
-echo -e "${YLL}Done.${NC}"
+
+# =============================================================================
+# Completion summary
+# =============================================================================
+cd "$mypath" 2>/dev/null
+
+# Tally what actually landed (one-line each in install.tmp / not-install.tmp)
+INSTALLED_COUNT=0
+FAILED_COUNT=0
+[ -f install.tmp ]      && INSTALLED_COUNT=$(grep -c '^Installed '   install.tmp     2>/dev/null || echo 0)
+[ -f not-install.tmp ]  && FAILED_COUNT=$(grep -c '^Not Installed '  not-install.tmp 2>/dev/null || echo 0)
+
+echo
+hr
+printf '%b\n' "${BOLD}${GRN}                 ✓  HackerToolkit setup complete  ✓${NC}"
+hr
+printf "   ${BOLD}Installed:${NC}  ${GRN}%s${NC} tools\n" "$INSTALLED_COUNT"
+if [ "$FAILED_COUNT" -gt 0 ]; then
+    printf "   ${BOLD}Failed:   ${NC}  ${RED}%s${NC} tools  ${DIM}see %s/not-install.tmp${NC}\n" "$FAILED_COUNT" "$mypath"
+else
+    printf "   ${BOLD}Failed:   ${NC}  ${GRN}0${NC} tools\n"
+fi
+printf "   ${BOLD}Location: ${NC}  %s\n" "$mypath"
+printf "   ${BOLD}Bin path: ${NC}  %s/.bin  ${DIM}(added to PATH via ~/.bashrc)${NC}\n" "$mypath"
+hr
+
+# -----------------------------------------------------------------------------
+# What this script does NOT install — these need a human in the loop because
+# they're either (a) Burp Suite extensions that load through Burp's BApp Store,
+# or (b) browser extensions that have to be added via the browser's UI.
+# -----------------------------------------------------------------------------
+hdr "Manual steps required"
+
+printf '\n%b\n' "${BOLD}${YLL}▸ Burp Suite extensions${NC} ${DIM}(open Burp → Extensions → BApp Store, search by name)${NC}"
+cat <<'BURP'
+   • Active Scan++                  • Autorize                    • Param Miner
+   • Additional Scanner Checks      • Burp Bounty Scan Check Bldr • Reflected Parameters
+   • Agartha (LFI/RCE/SQLi/Auth)    • Collaborator Everywhere     • Retire.js
+   • AutoRepeater                   • Content Type Convertor      • Scavenger
+   • Burp VPS Proxy                 • CORS Additional Checks      • Software Vulnerability Scanner
+   • Error Message Checks           • Flow                        • SQLiPy SQLmap Integration
+   • Freddy Deserialization Finder  • GAP                         • Turbo Intruder
+   • GatherContacts                 • HackTools                   • HTTP Request Smuggler
+   • InQL — GraphQL Scanner         • IPRotate                    • J2EEScan
+   • Java Deserialization Scanner   • JS Miner                    • JSON Web Tokens
+BURP
+
+printf '\n%b\n' "${BOLD}${YLL}▸ Browser extensions${NC} ${DIM}(install from your browser's add-on store)${NC}"
+cat <<'BROWSER'
+   • BuiltWith                      • Cookie-Editor               • Firefox Multi-Account Containers
+   • FoxyProxy                      • HackTools                   • Open Multiple URLs
+   • PwnFox                         • Trufflehog (browser ext)    • Wappalyzer
+   • WhatRuns
+BROWSER
+
+printf '\n%b\n' "${BOLD}${YLL}▸ Need API keys / accounts${NC}"
+cat <<'KEYS'
+   • Shodan          → set SHODAN_API_KEY (used by karma_v2, shosubgo, wtfis)
+   • GitHub          → personal access token for github-search, GitLeaks, etc.
+   • SecurityTrails  → wtfis
+   • VirusTotal      → wtfis
+   • Censys          → karma_v2
+KEYS
+
+# -----------------------------------------------------------------------------
+hdr "Next steps"
+printf "   1. ${BOLD}Reload your shell${NC} so the .bin/ aliases resolve:\n"
+printf "        ${CYN}source ~/.bashrc${NC}\n"
+printf "   2. ${BOLD}Verify a tool resolves:${NC}\n"
+printf "        ${CYN}which ffuf gobuster nuclei evilginx${NC}\n"
+printf "   3. ${BOLD}Read the full tool catalog:${NC}\n"
+printf "        ${CYN}less %s/README.md${NC}\n" "$(dirname "$mypath")"
+if [ "$FAILED_COUNT" -gt 0 ]; then
+    printf "   4. ${BOLD}Review failed installs:${NC}\n"
+    printf "        ${CYN}cat %s/not-install.tmp${NC}\n" "$mypath"
+fi
+
+hr
+printf "${BOLD}${MAG}     Happy hacking — stay legal, stay curious. ⚡${NC}\n\n"
 # END
