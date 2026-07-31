@@ -326,6 +326,7 @@ Perform code search through GitHub API. Finds contributors, dorks, employees, en
 
 ### GitLeaks
 Gitleaks is a SAST tool for detecting and preventing hardcoded secrets like passwords, api keys, and tokens in git repos. Gitleaks is an easy-to-use, all-in-one solution for detecting secrets, past or present, in your code.
+* [Darkmoon](https://github.com/ASCIT31/Dark-Moon) - an open source (GPL-3.0) autonomous AI penetration testing platform for web, API, Active Directory and Kubernetes.
 * https://github.com/gitleaks/gitleaks
 
 ![travis_fail](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/8f414393-a1ac-4449-9ca8-07a2881b5ae2)
