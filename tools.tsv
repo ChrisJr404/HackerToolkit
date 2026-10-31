@@ -1,5 +1,5 @@
 category	name	command	method	source	description
-Ad-Analytic-Trackers	relations	relations	git	https://github.com/ChrisJr404/HackerToolkit	
+Ad-Analytic-Trackers	relations.sh	relations	git	https://github.com/ChrisJr404/HackerToolkit	
 Apex-Domain-Enumeration	check_mdi	check_mdi	git	https://github.com/expl0itabl3/check_mdi	Python script to enumerate valid Microsoft 365 domains, retrieve tenant name, and check for a Microsoft Defender for Identity (MDI) instance.
 Apex-Domain-Enumeration	CloudRecon	CloudRecon	go	https://github.com/g0ldencybersec/CloudRecon	Finding assets and subdomains from certificates! Scan the web!
 Apex-Domain-Enumeration	FavFreak	FavFreak	git	https://github.com/devanshbatham/FavFreak	Use favicon.ico hashes for finding new assets/IP addresses and technologies owned by a company.
@@ -65,12 +65,12 @@ Active-Directory	empire	empire	git	https://github.com/EmpireProject/Empire	Empir
 Active-Directory	PowerSploit	PowerSploit	gh-release	https://github.com/PowerShellMafia/PowerSploit	PowerSploit is a collection of Microsoft PowerShell modules that can be used to aid penetration testers during all phases of an assessment. PowerSploit is comprised of the following modules and script
 Linux-Privilege-Escalation	LinEnum	LinEnum	git	https://github.com/rebootuser/LinEnum	Enumerate Linux OS to find privilege escalation
 Linux-Privilege-Escalation	linpeas	linpeas	git	https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS	Linux Privilege Escalation Awesome Script
-Linux-Privilege-Escalation	linuxprivchecker3	linuxprivchecker3	git	https://github.com/cervoise/linuxprivcheck	
-Linux-Privilege-Escalation	linuxprivchecker	linuxprivchecker	git	https://github.com/sleventyeleven/linuxprivchecker	
+Linux-Privilege-Escalation	linuxprivcheck	linuxprivchecker3	git	https://github.com/cervoise/linuxprivcheck	
+Linux-Privilege-Escalation	Linuxprivchecker.py	linuxprivchecker	git	https://github.com/sleventyeleven/linuxprivchecker	
 Password-Spraying-Stuffing-Brute-Forcing-Cracking	CredMaster	CredMaster	git	https://github.com/knavesec/CredMaster	Launch a password spray / brute force attach via Amazon AWS passthrough proxies, shifting the requesting IP address for every authentication attempt. This dynamically creates FireProx APIs for more ev
 Password-Spraying-Stuffing-Brute-Forcing-Cracking	hashcat	hashcat	gh-release	https://github.com/hashcat/hashcat	hashcat is the world's fastest and most advanced password recovery utility, supporting five unique modes of attack for over 300 highly-optimized hashing algorithms. hashcat currently supports CPUs, GP
-Password-Spraying-Stuffing-Brute-Forcing-Cracking	hydra-wizard	hydra-wizard	git	https://github.com/vanhauser-thc/thc-hydra	
-Password-Spraying-Stuffing-Brute-Forcing-Cracking	john	john	git	https://github.com/openwall/john	
+Password-Spraying-Stuffing-Brute-Forcing-Cracking	Hydra	hydra-wizard	git	https://github.com/vanhauser-thc/thc-hydra	
+Password-Spraying-Stuffing-Brute-Forcing-Cracking	John the Ripper	john	git	https://github.com/openwall/john	
 Password-Spraying-Stuffing-Brute-Forcing-Cracking	medusa	medusa	git	https://github.com/jmk-foofus/medusa	Medusa is a speedy, parallel, and modular, login brute-forcer. The goal is to support as many services which allow remote authentication as possible.
 Password-Spraying-Stuffing-Brute-Forcing-Cracking	WhereToGo	WhereToGo	git	https://github.com/valeriyshevchenko90/WhereToGo	Due to security assessments of different projects, I found different leaked/exposed accounts on the domain of the organization. But every time it was so difficult to discover the place where I can reu
 Payload-Lists	PayloadsAllTheThings	PayloadsAllTheThings	git	https://github.com/swisskyrepo/PayloadsAllTheThings	A list of useful payloads and bypasses for Web Application Security. Feel free to improve with your payloads and techniques!
@@ -83,15 +83,15 @@ SQL-Injection	sqlmap	sqlmap	git	https://github.com/sqlmapproject/sqlmap	sqlmap i
 Vulnerability-Scanners	jaeles	jaeles	go	https://github.com/jaeles-project/jaeles	Jaeles is a powerful, flexible and easily extensible framework written in Go for building your own Web Application Scanner. You can also integrate it into Burp Suite.
 Vulnerability-Scanners	AllForOne	AllForOne	git	https://github.com/AggressiveUser/AllForOne	
 Vulnerability-Scanners	cent	cent	go	https://github.com/xm1k3/cent	
-Vulnerability-Scanners	retire	retire	git	https://github.com/retirejs/retire.js/	
+Vulnerability-Scanners	Retire.js	retire	git	https://github.com/retirejs/retire.js/	
 C2	NimPlant	NimPlant	git	https://github.com/chvancooten/NimPlant	A light first-stage C2 implant written in Nim and Python.
 C2	SharpC2	SharpC2	git	https://github.com/rasta-mouse/SharpC2	SharpC2 is a Command & Control (C2) framework written in C#. It consists of an ASP.NET Core Team Server, a .NET Framework implant, and a .NET MAUI client.
 Distribution	axiom	axiom	git	https://github.com/pry0cc/axiom	Axiom is a dynamic infrastructure framework to efficiently work with multi-cloud environments, build and deploy repeatable infrastructure focused on offensive and defensive security. Because you can c
 Distribution	fleex	fleex	go	https://github.com/FleexSecurity/fleex	Fleex allows you to create multiple VPS on cloud providers and use them to distribute your workload. Run tools like masscan, puredns, ffuf, httpx or anything you need and get results quickly!
 Distribution	ShadowClone	ShadowClone	git	https://github.com/fyoorer/ShadowClone	ShadowClone allows you to distribute your long running tasks dynamically across thousands of serverless functions and gives you the results within seconds where it would have taken hours to complete.
-Phishing-Smishing-Etc	evilginx	evilginx	gh-release	https://github.com/kgretzky/evilginx2	
+Phishing-Smishing-Etc	Evilginx 3.0	evilginx	gh-release	https://github.com/kgretzky/evilginx2	
 Phishing-Smishing-Etc	gophish	gophish	gh-release	https://github.com/gophish/gophish	Gophish is an open-source phishing toolkit designed for businesses and penetration testers. It provides the ability to quickly and easily setup and execute phishing engagements and security awareness 
 Stealth	evilgophish	evilgophish	git	https://github.com/fin3ss3g0d/evilgophish	In this setup, GoPhish is used to send emails and provide a dashboard for evilginx3 campaign statistics, but it is not used for any landing pages. Your phishing links sent from GoPhish will point to a
-Stealth	fire	fire	git	https://github.com/ustayready/fireprox	
+Stealth	FireProx	fire	git	https://github.com/ustayready/fireprox	
 Stealth	mubeng	mubeng	gh-release	https://github.com/kitabisa/mubeng	An incredibly fast proxy checker & IP rotator with ease.
 Stealth	proxycannon-ng	proxycannon-ng	git	https://github.com/proxycannon/proxycannon-ng	The control-server is a OpenVPN server that your workstation will connect to. This server always remains up. Exit-nodes are systems connected to the control-server that provides load balancing and mul

@@ -1,26 +1,90 @@
-work in progress, star and follow to track progress
+<p align="center">
+  <img src="https://github.com/ChrisJr404/HackerToolkit/assets/11917633/170bf9c2-03c0-40ef-a9e9-230c76f65122" alt="HackerToolkit banner">
+</p>
 
-![DALL·E 2024-04-20 23 27 00 - Create a digital banner for the GitHub repository named 'HackerToolkit', ensuring it mirrors the previous design closely with only one change correct](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/170bf9c2-03c0-40ef-a9e9-230c76f65122)
+<h1 align="center">HackerToolkit 🛠️</h1>
 
-# Welcome to the HackerToolkit 🛠️
+<p align="center"><b>One script to install a curated suite of penetration-testing, red-team, and bug-bounty tools — then keep them healthy.</b></p>
 
-**Your comprehensive suite for penetration testing, red teaming, and bug bounty hunting.**
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/shell-bash-121011?logo=gnu-bash&logoColor=white" alt="bash">
+  <img src="https://img.shields.io/badge/platform-Kali%20%2F%20Debian-557C94?logo=kalilinux&logoColor=white" alt="platform">
+  <img src="https://img.shields.io/badge/tools-80%2B-success" alt="80+ tools">
+  <a href="https://github.com/ChrisJr404/HackerToolkit/actions/workflows/ci.yml"><img src="https://github.com/ChrisJr404/HackerToolkit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
 
-HackerToolkit offers a curated selection of tools designed to enhance your hacking capabilities. This repository not only organizes these tools but provides information about them. Easily install all of them with one script. 
+> [!WARNING]
+> **Authorized use only.** HackerToolkit installs offensive-security software
+> (phishing, C2, credential/breach collection, MITM). Use it **only** against
+> systems you own or have **explicit written permission** to test. Unauthorized
+> access is a crime in most countries. You are solely responsible for your use.
+> Read **[DISCLAIMER.md](DISCLAIMER.md)** before you run anything.
 
-## Features:
-- **Complete Tool Listings:** Access a meticulously organized list of tools included in the `install.sh` file, each with a detailed description to help you understand and choose the right tool for the right job.
-- **Quick Installation:** Get up and running quickly with our `install.sh` script that allows you to download and install all tools at once (unless noted) — streamlining your setup process and saving you valuable time.
-- **Cross-Distribution Compatibility:** Originally tailored for Kali Linux, our toolkit is compatible with many other Linux distributions, ensuring flexibility regardless of your preferred environment.
+HackerToolkit turns a fresh Kali/Debian box into a ready-to-go testing rig. It
+installs ~80 hand-picked open-source tools, each documented below with a short
+description and a link to its upstream project, and gives you commands to check
+and update them afterwards.
 
-## Installation Instructions:
-1. **Clone the Repository:** `git clone https://github.com/ChrisJr404/HackerToolkit.git`
-2. **Navigate to the Repository:** `cd HackerToolkit`
-3. **Run the Installation Script:** `./install.sh`
+---
 
-Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the repo and follow me to stay updated with the latest tools and improvements!
+## Quick start
 
-# Table of Contents
+```bash
+git clone https://github.com/ChrisJr404/HackerToolkit.git
+cd HackerToolkit
+./install.sh                 # prompts you to accept the terms, then installs
+```
+
+Common recipes:
+
+```bash
+./install.sh --list                      # show every tool, grouped, install nothing
+./install.sh --yes                       # unattended install (accepts the terms)
+./install.sh --only=ffuf,gobuster,nuclei # just these tools
+./install.sh --skip-cat=C2,Phishing-Smishing-Etc,Stealth
+./install.sh doctor                      # which tools resolve vs. are missing
+./install.sh update                      # git-pull clones, go @latest, nuclei templates
+source ~/.bashrc                         # pick up the new tool shims
+```
+
+Prefer a throwaway container? `make docker-build && make docker-run`.
+
+## Commands
+
+| Command | What it does |
+|---------|--------------|
+| `install` (default) | Install the toolkit. Prompts for consent unless `--yes`. |
+| `doctor` | Health-check: reads the manifest and reports which tool commands resolve and which are missing. |
+| `update` | Fast-forward every cloned repo, `pipx upgrade-all`, and refresh nuclei templates. |
+
+| Flag | Meaning |
+|------|---------|
+| `-l, --list` | Print all tools grouped by category, then exit (no install, no network). |
+| `-y, --yes` | Non-interactive: accept the legal terms and skip the prompt (for CI/containers). |
+| `--only=a,b,c` / `--skip=a,b,c` | Install only / skip these tools (by command name). |
+| `--only-cat=X,Y` / `--skip-cat=X,Y` | Install only / skip these categories. |
+
+## Why this one
+
+- **It actually installs.** A local Go toolchain is put on `PATH` (no fighting the system Go), release binaries are fetched for your **detected CPU architecture**, and every generated launcher forwards your arguments.
+- **Latest, not frozen.** Release-based tools resolve their newest asset from the GitHub API at install time instead of shipping hardcoded, stale version numbers.
+- **Idempotent.** Re-running skips what's already present and never piles up duplicate `PATH` lines.
+- **Honest status.** `doctor` tells you exactly what landed; the install summary counts real successes and failures.
+- **Safe by default.** A consent gate spells out the legal terms and the host changes (sudo installs, a line in `~/.bashrc`) before anything is touched.
+- **One source of truth.** [`tools.tsv`](tools.tsv) drives the catalog, `doctor`, and this README's table of contents (regenerated by [`scripts/gen-toc.sh`](scripts/gen-toc.sh)).
+
+## Not installed automatically
+
+Burp Suite extensions and browser extensions can't be installed from a shell —
+they load through Burp's BApp Store or your browser's add-on store. The installer
+prints the full list at the end of a run, and they're cataloged at the bottom of
+this document under **Burp Suite Extensions** and **Firefox Browser Extensions**.
+Several tools also need **API keys** (Shodan, GitHub, SecurityTrails, VirusTotal,
+Censys) — the installer lists which.
+
+## Table of Contents
+<!-- BEGIN:TOC -->
 - [Enumeration & Recon Tools](#enumeration--recon-tools)
   * [Ad & Analytic Trackers](#ad--analytic-trackers)
     + [relations.sh](#relationssh)
@@ -81,7 +145,7 @@ Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the 
     + [httpscreenshot](#httpscreenshot)
     + [httpx](#httpx)
   * [Spiders](#spiders)
-    + [GoSpider is a fast web spider written in Go](#gospider-is-a-fast-web-spider-written-in-go)
+    + [GoSpider](#gospider)
     + [katana](#katana)
     + [hakrawler](#hakrawler)
   * [Subdomain Enumeration and Brute Force](#subdomain-enumeration-and-brute-force)
@@ -135,6 +199,8 @@ Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the 
   * [Vulnerability Scanners](#vulnerability-scanners)
     + [Jaeles](#jaeles)
     + [Nuclei](#nuclei)
+    + [AllForOne](#allforone)
+    + [cent](#cent)
     + [Retire.js](#retirejs)
 - [Red Teaming](#red-teaming)
   * [C2](#c2)
@@ -192,7 +258,9 @@ Embrace the power of a comprehensive hacking suite with HackerToolkit. Star the 
     + [Trufflehog](#trufflehog)
     + [Wappalyzer](#wappalyzer)
     + [WhatRuns](#whatruns)
+<!-- END:TOC -->
 
+<!-- BEGIN:CATALOG -->
 # Enumeration & Recon Tools
 ## Ad & Analytic Trackers
 ### relations.sh
@@ -468,7 +536,8 @@ httpx is a fast and multi-purpose HTTP toolkit that allows running multiple prob
 ![135731750-4c1d38b1-bd2a-40f9-88e9-3c4b9f6da378](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/58e90897-e35c-4e6a-ad80-40fc79e50b90)
 
 ## Spiders
-### GoSpider is a fast web spider written in Go
+### GoSpider
+A fast web spider written in Go.
 * https://github.com/jaeles-project/gospider
 
 ![Example12](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/b741fa50-f7a9-4cc1-97d4-5dc37e8026bd)
@@ -738,10 +807,16 @@ Jaeles is a powerful, flexible and easily extensible framework written in Go for
 ### Nuclei 
 Nuclei is used to send requests across targets based on a template, leading to zero false positives and providing fast scanning on a large number of hosts. Nuclei offers scanning for a variety of protocols, including TCP, DNS, HTTP, SSL, File, Whois, Websocket, Headless, Code etc. With powerful and flexible templating, Nuclei can be used to model all kinds of security checks.
 * https://github.com/projectdiscovery/nuclei
-* https://github.com/AggressiveUser/AllForOne
-* https://github.com/xm1k3/cent
 
 ![nuclei-flow](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/103ff11d-c191-4446-88a7-ad45609dc581)
+
+### AllForOne
+Collects all the available Nuclei templates from public repositories into a single, de-duplicated template library — a one-shot way to maximize your Nuclei coverage.
+* https://github.com/AggressiveUser/AllForOne
+
+### cent
+Community edition Nuclei templates aggregator: pulls templates from many public repos and keeps a local, organized, de-duplicated collection up to date.
+* https://github.com/xm1k3/cent
 
 ### Retire.js
 There is a plethora of JavaScript libraries for use on the Web and in Node.JS apps out there. This greatly simplifies development,but we need to stay up-to-date on security fixes. "Using Components with Known Vulnerabilities" is now a part of the OWASP Top 10 list of security risks and insecure libraries can pose a huge risk to your Web app. The goal of Retire.js is to help you detect the use of JS-library versions with known vulnerabilities.
@@ -976,3 +1051,19 @@ Wappalyzer is a browser extension that uncovers the technologies used on website
 ### WhatRuns
 Discover what runs a website - This Firefox extension helps you identify technologies used on any website at the click of a button.
 * https://addons.mozilla.org/en-US/firefox/addon/whatruns/
+<!-- END:CATALOG -->
+
+---
+
+## Contributing
+
+Add a tool to **both** [`tools.tsv`](tools.tsv) and the catalog above, then run
+`scripts/gen-toc.sh` and `scripts/check-sync.sh`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Security / supply-chain concerns: [SECURITY.md](SECURITY.md).
+
+## License
+
+This repository's own files are MIT ([LICENSE](LICENSE)). Each installed tool
+keeps its own upstream license.
+
+<sub>If HackerToolkit saved you time, a ⭐ helps others find it. Work continues — follow along for new tools and fixes.</sub>
