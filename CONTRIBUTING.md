@@ -36,5 +36,9 @@ help with illegal use will be closed.
 
 ## Shell style
 
-- `install.sh` must pass `shellcheck install.sh` with no warnings.
-- Quote expansions; use the provided `safe_cd` helper instead of bare `cd`.
+- `install.sh` must pass `bash -n install.sh` and `shellcheck --severity=error
+  install.sh` (both enforced by CI). Run plain `shellcheck install.sh` too and
+  fix new warnings in code you touch; the few intentional word-splitting sites
+  (e.g. `pip install $reqList`) carry an inline `# shellcheck disable=SC2086`.
+- Quote path expansions; use the provided `safe_cd` helper instead of bare `cd`.
+- Generated tool launchers must forward arguments with `"$@"`.
