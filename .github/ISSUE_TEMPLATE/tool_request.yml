@@ -1,0 +1,117 @@
+name: Tool request
+description: Suggest a new tool to add to the catalog.
+title: "[Tool]: "
+labels: ["tool-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggest an **existing, published** offensive-security tool for the catalog.
+        Please read `CONTRIBUTING.md` first — a tool lives in **both** `tools.tsv`
+        and `README.md`, and the install `method` must be one of the documented
+        conventions.
+
+  - type: input
+    id: tool-name
+    attributes:
+      label: Tool name
+      description: The binary / command name as it should appear in the catalog.
+      placeholder: "ffuf"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: Must match an existing manifest category. Pick "Propose a new category" only if none fit, and explain in Notes.
+      options:
+        - Active-Directory
+        - Ad-Analytic-Trackers
+        - Apex-Domain-Enumeration
+        - Archival-Enumeration
+        - C2
+        - Change-Detection
+        - Credential-Collection-Tools
+        - Custom-Wordlists
+        - Directory-Enumeration
+        - Distribution
+        - Github-Enumeration
+        - JavaScript
+        - Linux-Privilege-Escalation
+        - Mobile-App-Enumeration
+        - Password-Spraying-Stuffing-Brute-Forcing-Cracking
+        - Payload-Lists
+        - Phishing-Smishing-Etc
+        - Port-Scanners-Active
+        - Port-Scanners-Passive
+        - Recon-Frameworks
+        - Screenshotting
+        - Shodan-Tools
+        - Spiders
+        - SQL-Injection
+        - Stealth
+        - Subdomain-Enumeration-and-Brute-Force
+        - Vulnerability-Scanners
+        - Web-Technology-Enumeration
+        - Windows-Privilege-Escalation
+        - "Propose a new category (describe in Notes)"
+    validations:
+      required: true
+
+  - type: input
+    id: upstream-url
+    attributes:
+      label: Upstream URL
+      description: The canonical project/source repository (https://...).
+      placeholder: "https://github.com/ffuf/ffuf"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Install method
+      description: The `method` value for the tools.tsv row. See CONTRIBUTING.md for conventions.
+      options:
+        - go
+        - apt
+        - pipx
+        - cargo
+        - gh-release
+        - git
+        - git-venv
+        - git-make
+        - git-shim
+        - script
+        - manual
+    validations:
+      required: true
+
+  - type: input
+    id: version-pin
+    attributes:
+      label: Version pin (and why)
+      description: If this tool must be pinned to a specific version/ref, say which and why. Leave blank if it tracks latest.
+      placeholder: "v2.1.0 — latest breaks on Go 1.21 (optional)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes / justification
+      description: What does it do, why does it belong here, and anything the installer needs to know (deps, build quirks, a proposed new category).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: policy
+    attributes:
+      label: Authorized-use & scope policy
+      description: See DISCLAIMER.md and CONTRIBUTING.md.
+      options:
+        - label: This is an existing, published tool intended for authorized security testing, education, or research.
+          required: true
+        - label: This is NOT malware, non-consensual surveillance tooling, or software whose primary purpose is unauthorized access.
+          required: true

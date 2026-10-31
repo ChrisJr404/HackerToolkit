@@ -1,0 +1,36 @@
+# Keep the build context tiny and the install layer cache-stable.
+# The Dockerfile COPYs only install.sh + tools.tsv, but excluding the rest here
+# also prevents large/irrelevant files from being sent to the daemon.
+
+# Version control
+.git
+.gitignore
+
+# The installer builds its entire tool tree into ./HackerToolkit/ (gitignored).
+# Never ship a host-built tree into the image — it must be built inside.
+HackerToolkit/
+toolkit/
+.bin/
+
+# Per-run status logs written by install.sh
+*.tmp
+install.tmp
+not-install.tmp
+
+# Docs / meta not needed at build time (consent text is skipped by --yes)
+README.md
+CONTRIBUTING.md
+SECURITY.md
+DISCLAIMER.md
+LICENSE
+*.md
+
+# Editor / OS noise
+*.swp
+*~
+.DS_Store
+
+# This project's own container tooling isn't needed inside the context
+Dockerfile
+.dockerignore
+Makefile

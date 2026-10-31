@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Least privilege: CI only needs to read the repo.
+permissions:
+  contents: read
+
+# Keep it fast: a newer push to the same ref cancels the in-flight run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Shell lint & syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # shellcheck ships on GitHub-hosted runners, but install it defensively
+      # so the job is self-contained and survives image changes.
+      - name: Ensure shellcheck is installed
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y shellcheck
+          fi
+          shellcheck --version
+
+      # Blocking: this is the quality bar CONTRIBUTING.md enforces.
+      - name: shellcheck (severity=error, blocking)
+        run: shellcheck --severity=error install.sh
+
+      # Non-blocking: surface every advisory (style/info/warning) for visibility
+      # without failing the build.
+      - name: shellcheck (all advisories, non-blocking)
+        run: shellcheck install.sh || true
+
+      - name: bash syntax check (bash -n)
+        run: bash -n install.sh
+
+  smoke:
+    name: CLI smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "./install.sh --list exits 0 and prints tool lines"
+        run: |
+          set +e
+          bash ./install.sh --list > list.out 2>&1
+          rc=$?
+          set -e
+          echo "--list exit code: $rc"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::install.sh --list exited $rc (expected 0)"
+            echo "----- output -----"
+            cat list.out
+            exit 1
+          fi
+          # Assert the catalog actually printed: bulleted "  • <tool>" lines.
+          lines=$(grep -c '•' list.out || true)
+          echo "bulleted tool lines: $lines"
+          if [ "${lines:-0}" -lt 20 ]; then
+            echo "::error::--list printed only ${lines:-0} tool lines (expected >= 20)"
+            cat list.out
+            exit 1
+          fi
+          # Spot-check that known tools are present in the listing.
+          for t in ffuf gobuster nmap; do
+            if ! grep -q "$t" list.out; then
+              echo "::error::expected tool '$t' not found in --list output"
+              exit 1
+            fi
+          done
+          echo "smoke: --list OK ($lines tool lines)"
+
+      - name: "./install.sh --help exits 0"
+        run: bash ./install.sh --help
+
+      # Advisory only: prove the script's `doctor` subcommand runs end to end.
+      # Most tools are not installed on the runner, so doctor will exit nonzero
+      # by design -- that is expected and must NOT fail CI.
+      - name: "./install.sh doctor (advisory, non-blocking)"
+        run: bash ./install.sh doctor || true
+
+  manifest:
+    name: Validate tools.tsv
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: tools.tsv is well-formed (6 columns, header, non-empty command)
+        run: |
+          awk -F'\t' '
+            NR == 1 {
+              if ($0 != "category\tname\tcommand\tmethod\tsource\tdescription") {
+                print "::error file=tools.tsv,line=1::header malformed; got: " $0
+                bad = 1
+              }
+              next
+            }
+            {
+              if (NF != 6) {
+                print "::error file=tools.tsv,line=" NR ":: expected 6 tab-separated columns, got " NF
+                bad = 1
+              } else if ($3 == "") {
+                print "::error file=tools.tsv,line=" NR ":: empty command field (column 3)"
+                bad = 1
+              }
+            }
+            END {
+              if (NR < 2) {
+                print "::error file=tools.tsv::no tool rows found"
+                bad = 1
+              }
+              if (bad) { exit 1 }
+              print "manifest OK: " (NR - 1) " rows validated"
+            }
+          ' tools.tsv
+
+  selftest:
+    name: Repo self-test (sync + ToC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure shellcheck is installed
+        run: |
+          command -v shellcheck >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+
+      # Runs the same gates as scripts/selftest.sh: syntax, shellcheck errors,
+      # CLI smoke, manifest<->README sync, and ToC idempotency (fails if the
+      # committed ToC is stale — contributors must run scripts/gen-toc.sh).
+      - name: ./scripts/selftest.sh
+        run: bash ./scripts/selftest.sh

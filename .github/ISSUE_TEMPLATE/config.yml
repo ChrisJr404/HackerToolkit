@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/ChrisJr404/HackerToolkit/security/advisories/new
+    about: >-
+      For an insecure download, a compromised or typosquatted upstream, or a
+      command-injection vector in install.sh, open a private Security Advisory.
+      Do not file a public issue. See SECURITY.md.
+  - name: Security policy (SECURITY.md)
+    url: https://github.com/ChrisJr404/HackerToolkit/security/policy
+    about: How to report vulnerabilities in this installer vs. in the upstream tools it packages.

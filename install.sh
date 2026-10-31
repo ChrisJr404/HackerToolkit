@@ -10,6 +10,12 @@
 # enable -u (catches unset vars) and pipefail (catches pipe-stage failures).
 set -uo pipefail
 
+# Absolute dir of this script (the repo root). tools.tsv and README.md live
+# here; resolve it before any `cd` so `doctor`/`update` find the manifest no
+# matter where the user runs the script from.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo .)"
+MANIFEST="$SCRIPT_DIR/tools.tsv"
+
 # ---- Color palette -----------------------------------------------------------
 # Use tput when available; fall back to raw escapes so the script stays portable
 # on minimal containers without ncurses. Disable colors when stdout isn't a TTY
@@ -46,16 +52,23 @@ safe_cd() {
 #       --skip=a,b,c        install everything except these tools
 #       --only-cat=X,Y      install only these categories (e.g. Recon-Frameworks)
 #       --skip-cat=X,Y      skip these categories
-ONLY=""; SKIP=""; ONLY_CAT=""; SKIP_CAT=""; LIST_MODE=0
+ONLY=""; SKIP=""; ONLY_CAT=""; SKIP_CAT=""; LIST_MODE=0; ASSUME_YES=0; ACTION="install"
 usage() {
     cat <<USAGE
-${BOLD}HackerToolkit installer${NC}
+${BOLD}HackerToolkit${NC} — install & manage a pentest / red-team / bug-bounty toolkit
 
-Usage: ./install.sh [OPTIONS]
+Usage: ./install.sh [COMMAND] [OPTIONS]
 
+${BOLD}Commands${NC} (default: install)
+  install                  Install the toolkit (the default if omitted)
+  doctor                   Health-check: show which tools resolve / are missing
+  update                   Update already-installed tools (git pull, go @latest, …)
+
+${BOLD}Options${NC}
   -h, --help               Show this help and exit
   -l, --list               Print every tool grouped by category, then exit
-      --only=a,b,c         Install only these tools (by pck name)
+  -y, --yes                Non-interactive: skip the authorized-use prompt (CI)
+      --only=a,b,c         Install only these tools (by command name)
       --skip=a,b,c         Skip these tools
       --only-cat=X,Y       Install only these categories
       --skip-cat=X,Y       Skip these categories
@@ -69,18 +82,23 @@ Categories follow the directory names under ./HackerToolkit/, e.g.
 Examples:
   ./install.sh --only=ffuf,gobuster,nuclei
   ./install.sh --skip-cat=C2,Phishing-Smishing-Etc
-  ./install.sh --only-cat=Subdomain-Enumeration-and-Brute-Force
+  ./install.sh doctor
+  ./install.sh --yes            # unattended install (accepts the legal terms)
+
+${DIM}Offensive security tooling — authorized testing only. See DISCLAIMER.md.${NC}
 USAGE
 }
 while [ $# -gt 0 ]; do
     case "$1" in
+        install|doctor|update) ACTION="$1";;
         -h|--help)        usage; exit 0;;
         -l|--list)        LIST_MODE=1;;
+        -y|--yes)         ASSUME_YES=1;;
         --only=*)         ONLY="${1#--only=}";;
         --skip=*)         SKIP="${1#--skip=}";;
         --only-cat=*)     ONLY_CAT="${1#--only-cat=}";;
         --skip-cat=*)     SKIP_CAT="${1#--skip-cat=}";;
-        *)                err "unknown flag: $1"; usage; exit 2;;
+        *)                err "unknown argument: $1"; usage; exit 2;;
     esac
     shift
 done
@@ -109,6 +127,135 @@ exist(){
     fi
     return 0
 }
+
+# ---- GitHub release resolver -------------------------------------------------
+# Instead of hardcoding version numbers and `amd64` into download URLs (which
+# rot and break on arm64), resolve the newest release asset for THIS host at
+# run time. `_arch_rx` expands to an alternation of the arch tokens upstreams
+# actually use (e.g. amd64|x86_64). Honors $GITHUB_TOKEN to dodge the 60/hr
+# unauthenticated API limit.
+_arch_rx() { printf '(%s|%s)' "$ARCH" "$ARCH_ALT"; }
+gh_latest_url() {
+    # gh_latest_url <owner/repo> <asset-name-regex>  -> prints first match URL
+    local repo="$1" rx="$2"
+    curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+        "https://api.github.com/repos/$repo/releases/latest" 2>/dev/null \
+        | jq -r --arg rx "$rx" '.assets[]|select(.name|test($rx;"i"))|.browser_download_url' \
+        | head -1
+}
+# gh_dl <owner/repo> <asset-regex> <outfile> — download that asset, or fail.
+gh_dl() {
+    # gh_dl <owner/repo> <asset-name-regex> <outfile>
+    # Downloads the newest matching release asset and, when the release ships a
+    # checksums file, verifies the download's sha256 and FAILS HARD on mismatch.
+    # Releases without a checksums file are downloaded with a warning (we can't
+    # verify what upstream doesn't publish) — never a silent pass.
+    local repo="$1" rx="$2" out="$3" json url name sumurl want have
+    json="$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+        "https://api.github.com/repos/$repo/releases/latest" 2>/dev/null)"
+    url="$(printf '%s' "$json" | jq -r --arg rx "$rx" '.assets[]|select(.name|test($rx;"i"))|.browser_download_url' | head -1)"
+    if [ -z "$url" ] || [ "$url" = "null" ]; then err "no asset matching /$rx/ in $repo latest release"; return 1; fi
+    name="$(basename "$url")"
+    info "↓ $name"
+    wget -qO "$out" "$url" || { err "download failed: $name"; return 1; }
+
+    sumurl="$(printf '%s' "$json" | jq -r '.assets[]|select(.name|test("checksum|sha256|sha256sums";"i"))|.browser_download_url' | head -1)"
+    if [ -z "$sumurl" ] || [ "$sumurl" = "null" ]; then
+        warn "$repo publishes no checksums file — downloaded over TLS but sha256 not verified"
+        return 0
+    fi
+    want="$(curl -fsSL "$sumurl" 2>/dev/null | grep -iF "$name" | grep -oiE '[0-9a-f]{64}' | head -1)"
+    if [ -z "$want" ]; then
+        warn "no checksum line for $name — sha256 not verified"
+        return 0
+    fi
+    have="$(sha256sum "$out" | awk '{print $1}')"
+    if [ "$(printf '%s' "$want" | tr 'A-F' 'a-f')" = "$have" ]; then
+        ok "sha256 verified: $name"
+        return 0
+    fi
+    err "sha256 MISMATCH for $name — expected $want, got $have. Deleting and failing."
+    rm -f "$out"
+    return 1
+}
+
+# ---- Subcommands: doctor / update -------------------------------------------
+# Both read tools.tsv (the manifest that also feeds the README and --list) and
+# operate on an existing ./HackerToolkit install tree next to this script.
+_load_env() {
+    local binpath="$SCRIPT_DIR/HackerToolkit/.bin"
+    # shellcheck source=/dev/null
+    [ -f "$binpath/hackertoolkit_bash" ] && . "$binpath/hackertoolkit_bash"
+    [ -d "$binpath" ] && PATH="$PATH:$binpath"
+    DOCTOR_BIN="$binpath"
+}
+run_doctor() {
+    _load_env
+    if [ ! -f "$MANIFEST" ]; then err "manifest not found: $MANIFEST"; return 1; fi
+    hdr "HackerToolkit doctor — is every tool resolvable?"
+    local okc=0 miss=0 cat name command method src desc
+    while IFS=$'\t' read -r cat name command method src desc; do
+        [ "$cat" = "category" ] && continue
+        [ -z "${command:-}" ] && continue
+        if command -v "$command" >/dev/null 2>&1 || [ -e "$DOCTOR_BIN/$command" ]; then
+            printf "  ${GRN}✓${NC} %-22s ${DIM}%-10s${NC}\n" "$command" "$method"
+            okc=$((okc+1))
+        else
+            printf "  ${RED}✗${NC} %-22s ${DIM}%-10s %s${NC}\n" "$command" "$method" "$src"
+            miss=$((miss+1))
+        fi
+    done < "$MANIFEST"
+    hr
+    printf "   ${BOLD}Resolved:${NC} ${GRN}%s${NC}    ${BOLD}Missing:${NC} ${RED}%s${NC}\n" "$okc" "$miss"
+    printf "   ${DIM}Tip: install the missing ones with --only=<name>, or reload your shell.${NC}\n"
+    [ "$miss" -eq 0 ]
+}
+run_update() {
+    _load_env
+    local root="$SCRIPT_DIR/HackerToolkit"
+    [ -d "$root" ] || { err "nothing installed yet ($root missing)"; return 1; }
+    hdr "Updating git-cloned tools (fast-forward only)"
+    while IFS= read -r g; do
+        d="$(dirname "$g")"
+        info "git pull: ${d#"$root"/}"
+        git -C "$d" pull --ff-only >/dev/null 2>&1 || warn "skipped ${d#"$root"/} (diverged/dirty)"
+    done < <(find "$root" -maxdepth 4 -type d -name .git 2>/dev/null)
+    if command -v pipx >/dev/null 2>&1; then hdr "pipx upgrade-all"; pipx upgrade-all || true; fi
+    if command -v nuclei >/dev/null 2>&1; then hdr "nuclei -update-templates"; nuclei -update-templates 2>/dev/null || true; fi
+    ok "update complete"
+}
+
+# ---- Authorized-use consent gate --------------------------------------------
+consent_gate() {
+    [ "$ASSUME_YES" = 1 ] && return 0
+    printf '\n%b\n' "${BOLD}${YLL}⚠  AUTHORIZED USE ONLY${NC}"
+    cat <<EOT
+ HackerToolkit installs offensive-security tools (phishing, C2, credential and
+ breach-data collection, MITM). Use them ONLY against systems you own or have
+ explicit written permission to test — unauthorized use may be a crime.
+
+ This installer also MODIFIES YOUR HOST:
+   • sudo apt / dpkg / snap package installs, and some 'sudo make install'
+   • a local Go toolchain under ./HackerToolkit/.bin/go
+   • a line appended to ~/.bashrc to add the toolkit's bin dir to PATH
+ Full terms: DISCLAIMER.md
+EOT
+    local reply
+    if [ -r /dev/tty ]; then
+        printf "\n Type %bI AGREE%b to continue (or Ctrl-C to abort): " "$BOLD" "$NC"
+        read -r reply < /dev/tty
+    else
+        err "No TTY available to confirm. Re-run with --yes to accept non-interactively."
+        exit 1
+    fi
+    [ "$reply" = "I AGREE" ] || { err "Not confirmed — aborting."; exit 1; }
+}
+
+# ---- Dispatch the read-only subcommands before any install work -------------
+case "$ACTION" in
+    doctor) run_doctor; exit $?;;
+    update) run_update; exit $?;;
+esac
 
 # ---- Per-tool install helpers ------------------------------------------------
 # Single-source-of-truth wrapper around the "is it installed already? install
@@ -287,6 +434,9 @@ if [ "$LIST_MODE" != 1 ]; then
 fi
 [ "$LIST_MODE" = 1 ] || hr
 
+# Authorized-use + host-mutation consent (skipped for --list and --yes).
+[ "$LIST_MODE" = 1 ] || consent_gate
+
 # - Main folder
 mkdir -p HackerToolkit/.bin
 safe_cd HackerToolkit
@@ -358,18 +508,25 @@ if [ "$LIST_MODE" != 1 ]; then
         tar -C . -xzf "${GO_TARBALL}"
     fi
     "$mypath/.bin/go/bin/go" version
-    alias go="$mypath/.bin/go/bin/go"
+
+    # Put the local Go toolchain on PATH so a plain `go` resolves. Bash does NOT
+    # expand aliases in non-interactive scripts, so the old `alias go=…` left
+    # every `go install`/`go build` as "go: command not found" — silently
+    # breaking ~25 tools. Use PATH, and set CGO unconditionally (it used to live
+    # only in the first-run branch, so re-runs skipped it).
+    export PATH="$mypath/.bin/go/bin:$PATH"
+    export GOPATH="$HOME/go"
+    export PATH="$PATH:$GOPATH/bin"
+    "$mypath/.bin/go/bin/go" env -w CGO_ENABLED=1
 
     if grep -qF "GOPATH=\$HOME/go" "$mypath/.bin/hackertoolkit_bash" 2>/dev/null; then
         info "Go PATH already configured."
     else
-        export GOPATH="$HOME/go"
         {
+            echo "export PATH=\"$mypath/.bin/go/bin:\$PATH\""
             echo 'export GOPATH=$HOME/go;'
             echo 'export PATH=$PATH:$HOME/go/bin'
         } >>"$mypath/.bin/hackertoolkit_bash"
-        export PATH="$PATH:$HOME/go/bin"
-        "$mypath/.bin/go/bin/go" env -w CGO_ENABLED=1
     fi
 
     safe_cd ..
@@ -383,20 +540,37 @@ if [ "$LIST_MODE" != 1 ]; then
     exist perl
     exist make
     exist realpath coreutils
-    exist 7z
+    exist 7z p7zip-full
     exist rsync
     exist snap snapd
 fi
 
-regexPIPXexPath="$HOME/\.local/bin"
-if [[ "$PATH" =~ $regexPIPXexPath ]];then
-    echo "pipx executable path found!"
+# pipx drops console scripts in ~/.local/bin. Add it to PATH for this run, and
+# persist it to the shim file only once (the old guard tested the live $PATH,
+# so a fresh shell appended a duplicate line on every run).
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) PATH="$PATH:$HOME/.local/bin"; export PATH;;
+esac
+if ! grep -qF 'export PATH=$PATH:$HOME/.local/bin' "$mypath/.bin/hackertoolkit_bash" 2>/dev/null; then
+    echo "export PATH=\$PATH:\$HOME/.local/bin" >>"$mypath/.bin/hackertoolkit_bash"
+fi
+
+# ---- API keys ----------------------------------------------------------------
+# Many tools need keys (Shodan, GitHub, SecurityTrails, VirusTotal, Censys).
+# Copy keys.env.example to ~/.config/hackertoolkit/keys.env and fill it in.
+# Loaded for THIS run (so a GITHUB_TOKEN also lifts the rate limit the gh_dl
+# release resolver uses) and wired into the shim env for future shells.
+HTK_KEYS="${XDG_CONFIG_HOME:-$HOME/.config}/hackertoolkit/keys.env"
+if [ -f "$HTK_KEYS" ]; then
+    set -a; . "$HTK_KEYS"; set +a
+    ok "Loaded API keys from $HTK_KEYS"
 else
-    echo "No, pipx executable path was not found!"
-    PATH="$PATH:$HOME/.local/bin"
-    export PATH
-    echo "export PATH=\$PATH:\$HOME/.local/bin" >>$mypath/.bin/hackertoolkit_bash
-    
+    info "No API-key file at $HTK_KEYS (optional — see keys.env.example)."
+fi
+if ! grep -qF 'hackertoolkit/keys.env' "$mypath/.bin/hackertoolkit_bash" 2>/dev/null; then
+    printf '[ -f %q ] && set -a && . %q && set +a\n' "$HTK_KEYS" "$HTK_KEYS" \
+        >>"$mypath/.bin/hackertoolkit_bash"
 fi
 
 # - Enumeration & Recon Tools
@@ -411,10 +585,13 @@ safe_cd "Ad-Analytic-Trackers"
 ### relations.sh
 pck="relations"
 if try_install "$pck"; then
-    wget -O $pck https://gist.github.com/hateshape/393ab7003023f3b13126a4892100c8ff
+    # The gist page URL returns HTML, not the script, and writes to the wrong
+    # filename. Fetch the RAW gist and keep the name the symlink expects.
+    wget -L -O relations.sh "https://gist.githubusercontent.com/hateshape/393ab7003023f3b13126a4892100c8ff/raw"
+    rc=$?
     chmod +x relations.sh
-    ln -s $(realpath relations.sh) $mypath/.bin/relations
-    mark_install "$pck"
+    ln -sf "$(realpath relations.sh)" "$mypath/.bin/relations"
+    mark_install "$pck" "$rc"
 fi
 safe_cd ..
 ## Apex Domain Enumeration
@@ -426,11 +603,11 @@ safe_cd "Apex-Domain-Enumeration"
 pck="check_mdi"
 if try_install "$pck"; then
     git clone 'https://github.com/expl0itabl3/check_mdi.git' --depth 1
-    cd check_mdi
+    safe_cd check_mdi
     # alias check_mdi="python3 $(pwd)/check_mdi.py" 
-    # echo "alias check_mdi=\"python3 $(pwd)/check_mdi.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}python3 $(pwd)/check_mdi.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias check_mdi=\"python3 $(pwd)/check_mdi.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}python3 $(pwd)/check_mdi.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -448,20 +625,18 @@ fi
 pck="FavFreak"
 if try_install "$pck"; then
     git clone https://github.com/devanshbatham/FavFreak.git --depth 1
-    cd FavFreak
+    safe_cd FavFreak
     pipx install virtualenv
     pipx ensurepath
     eval "$(register-python-argcomplete pipx)"
+    # venv is created as ./env — the shim must point at env/, not a venv/ that
+    # was never created, and mmh3 must go INTO that venv.
     virtualenv -p python3 env
-    source env/bin/activate
-    python3 -m pip install mmh3
-    # alias FavFreak="$(pwd)/venv/bin/python3 $(pwd)/favfreak.py" 
-    # echo "alias FavFreak=\"$(pwd)/venv/bin/python3 $(pwd)/favfreak.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/favfreak.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    ./env/bin/pip install mmh3
+    printf '%b%s "$@"\n' "${sh}" "$(pwd)/env/bin/python3 $(pwd)/favfreak.py" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     mark_install "$pck"
-    echo 
-    deactivate xxx
+    echo
     safe_cd ..
 else
     echo -e "${BLU}$pck${NC} already installed. Skipping..."
@@ -480,7 +655,7 @@ safe_cd "Archival-Enumeration"
 pck="gau";
 if try_install "$pck"; then
     git clone https://github.com/lc/gau.git --depth 1;
-    cd gau/cmd/gau;
+    safe_cd gau/cmd/gau;
     go build;
     # sudo mv gau /usr/local/bin/
     ln -s $(pwd)/gau $mypath/.bin/gau
@@ -546,15 +721,15 @@ fi
 pck="linkedin2username";
 if try_install "$pck"; then
     git clone 'https://github.com/initstring/linkedin2username.git' --depth 1;
-    cd linkedin2username;
+    safe_cd linkedin2username;
     # pipx install -r ./requirements.txt;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias linkedin2username="$(pwd)/venv/bin/python3 linkedin2username.py" ;
-    # echo "alias linkedin2username=\"$(pwd)/venv/bin/python3 linkedin2username.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkedin2username.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias linkedin2username=\"$(pwd)/venv/bin/python3 linkedin2username.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkedin2username.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -566,8 +741,8 @@ if try_install "$pck"; then
     echo ""
     echo "https://addons.mozilla.org/en-US/firefox/addon/weakestlink/"
     echo ""
-    echo  -e "${sh}echo plugin link: 'https://addons.mozilla.org/en-US/firefox/addon/weakestlink/'" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    echo  -e "${sh}echo plugin link: 'https://addons.mozilla.org/en-US/firefox/addon/weakestlink/'" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     echo "Run the WeakestLink command tu see again this"
     sleep 2
 else
@@ -596,11 +771,11 @@ if try_install "$pck"; then
     sudo gem install   rubyzip
     sudo gem install   spider
     git clone 'https://github.com/digininja/CeWL.git'
-    cd CeWL
+    safe_cd CeWL
     chmod u+x ./cewl.rb
     ./cewl.rb -h
     # alias cewl="$(pwd)/cewl.rb" ;
-    # echo "alias cewl=\"$(pwd)/cewl.rb\"" >>$mypath/.bin/hackertoolkit_bash;
+    # echo "alias cewl=\"$(pwd)/cewl.rb\"" >>"$mypath/.bin/hackertoolkit_bash";
     ln -s $(pwd)/cewl.rb $mypath/.bin/$pck
     safe_cd ..
     mark_install "$pck"
@@ -611,12 +786,12 @@ pck="wordlistgen";
 if try_install "$pck"; then
     # go get -u github.com/ameenmaali/wordlistgen
     git clone https://github.com/ameenmaali/wordlistgen.git;
-    cd wordlistgen/
-    go mod init wordlistgen/v3
-    go get
+    safe_cd wordlistgen
+    # The repo already ships a go.mod; `go mod init` would error. Just build.
     go install
+    rc=$?
     safe_cd ..
-    mark_install "$pck"
+    mark_install "$pck" "$rc"
 fi
 safe_cd ..
 ## Directory Enumeration
@@ -628,9 +803,12 @@ safe_cd "Directory-Enumeration"
 pck="dirsearch"
 if try_install "$pck"; then
     git clone https://github.com/maurosoria/dirsearch.git --depth 1
-    echo  -e "${sh}ls -al dirsearch" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
-    mark_install "$pck"
+    rc=$?
+    # The shim must actually launch dirsearch.py and forward args — the old one
+    # just ran `ls -al dirsearch`.
+    printf '%b%s "$@"\n' "${sh}" "python3 $(pwd)/dirsearch/dirsearch.py" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
+    mark_install "$pck" "$rc"
 fi
 ### feroxbuster
 pck="feroxbuster";
@@ -660,50 +838,58 @@ pck="wfuzz";
 if try_install "$pck"; then
     # pipx install wfuzz
     git clone https://github.com/xmendez/wfuzz.git;
-    cd wfuzz;
+    safe_cd wfuzz;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     venv/bin/python3 setup.py build;
     venv/bin/python3 setup.py install;
     # alias wfuzz="$(pwd)/venv/bin/wfuzz " 
-    # echo "alias wfuzz=\"$(pwd)/venv/bin/wfuzz \"" >>$mypath/.bin/hackertoolkit_bash
+    # echo "alias wfuzz=\"$(pwd)/venv/bin/wfuzz \"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/venv/bin/wfuzz $mypath/.bin/wfuzz
     safe_cd ..
     mark_install "$pck"
 fi
 safe_cd ..
 ## Github Enumeration
-set_category "Github Enumeration"
-mkdir -p "Github Enumeration"
-safe_cd "Github Enumeration"
+set_category "Github-Enumeration"
+mkdir -p "Github-Enumeration"
+safe_cd "Github-Enumeration"
 ### github-search
 # https://github.com/gwen001/github-search
 pck="github-search";
 if try_install_dir "$pck" "github-search"; then
     git clone https://github.com/gwen001/github-search
-    cd github-search
+    safe_cd github-search
     # pip3 install -r requirements.txt
     python3 -m venv venv
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ')
+    # shellcheck disable=SC2086  # intentional word-splitting of the req list
     venv/bin/pip install $reqList
-    # - this package, like john the ripper has many tools, so it's better add the run path to the system executable PATH
-    export PATH="$PATH:$(realpath . )"
-    echo "export PATH=\"\$PATH:$(realpath . )\"" >>$mypath/.bin/hackertoolkit_bash
+    rc=$?
+    # github-search ships many scripts; put its dir on PATH (guarded so re-runs
+    # don't append a duplicate line every time).
+    GHS_DIR="$(realpath .)"
+    export PATH="$PATH:$GHS_DIR"
+    if ! grep -qF "$GHS_DIR" "$mypath/.bin/hackertoolkit_bash" 2>/dev/null; then
+        echo "export PATH=\"\$PATH:$GHS_DIR\"" >>"$mypath/.bin/hackertoolkit_bash"
+    fi
     safe_cd ..
-    mark_install "$pck"
+    mark_install "$pck" "$rc"
 fi
 ### gitleaks
 # https://github.com/gitleaks/gitleaks
 pck="gitleaks";
 if try_install "$pck"; then
     git clone https://github.com/gitleaks/gitleaks.git
-    cd gitleaks
+    safe_cd gitleaks
     make build
-    # make install
-    # -Installed on /usr/local/bin/gitleaks
+    rc=$?
+    # `make build` leaves the binary in the repo root but never put it on PATH,
+    # so `command -v gitleaks` failed and it rebuilt every run. Link it.
+    ln -sf "$(pwd)/gitleaks" "$mypath/.bin/gitleaks"
     safe_cd ..
-    mark_install "$pck"
+    mark_install "$pck" "$rc"
 fi
 safe_cd ..
 ## JavaScript
@@ -722,7 +908,7 @@ fi
 pck="linkfinder";
 if try_install "$pck"; then
     git clone https://github.com/GerbenJavado/LinkFinder.git --depth 1
-    cd LinkFinder;
+    safe_cd LinkFinder;
     # pip3 install -r requirements.txt
     # python3 setup.py install
     python3 -m venv venv;
@@ -731,9 +917,9 @@ if try_install "$pck"; then
     venv/bin/python3 setup.py build;
     venv/bin/python3 setup.py install;
     # alias linkfinder="$(pwd)/venv/bin/python3 linkfinder.py";
-    # echo "alias linkfinder=\"$(pwd)/venv/bin/python3 linkfinder.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkfinder.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias linkfinder=\"$(pwd)/venv/bin/python3 linkfinder.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkfinder.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -767,9 +953,10 @@ if try_install "$pck"; then
         pipx install impacket
     fi
     git clone https://gitlab.com/kalilinux/packages/oscanner.git --depth 1
-    cd oscanner
-    chmod +x $(pwd)/oscanner.jar
-    ln -s $(pwd)/oscanner.jar $mypath/.bin/oscanner
+    safe_cd oscanner
+    # A .jar is not directly executable — wrap it so `oscanner` runs via java.
+    printf '%bexec java -jar %s "$@"\n' "${sh}" "$(pwd)/oscanner.jar" > "$mypath/.bin/oscanner"
+    chmod +x "$mypath/.bin/oscanner"
     pipx install git+https://github.com/Tib3rius/AutoRecon.git
     safe_cd ..
     mark_install "$pck"
@@ -780,7 +967,7 @@ pck="masscan";
 if try_install "$pck"; then
     sudo apt-get --assume-yes install git make gcc;
     git clone https://github.com/robertdavidgraham/masscan --depth 1;
-    cd masscan;
+    safe_cd masscan;
     make;
     sudo make install;
     mark_install "$pck"
@@ -805,17 +992,26 @@ fi
 # https://github.com/nmap/nmap
 # - Instaled as dependency of AutoRecon
 pck="nmap";
-nmap -V
-mark_install "$pck"
-echo 
+# nmap comes in as an AutoRecon dependency. Only claim it if it actually
+# resolved, and respect the --only/--skip/--list filters like every other tool.
+if try_install "$pck"; then
+    sudo apt -y install nmap
+    mark_install "$pck" $?
+elif command -v nmap >/dev/null 2>&1; then
+    nmap -V | head -1
+fi
+echo
 
 
 # https://github.com/RustScan/RustScan
 pck="rustscan";
 if try_install "$pck"; then
-    wget https://github.com/RustScan/RustScan/releases/download/2.2.2/rustscan_2.2.2_amd64.deb;
-    sudo dpkg -i rustscan_2.2.2_amd64.deb;
-    mark_install "$pck"
+    # RustScan's release assets are double-zipped and arch-messy; it's a Rust
+    # crate, so install it the clean, arch-independent way.
+    cargo install rustscan
+    rc=$?
+    [ -x "$HOME/.cargo/bin/rustscan" ] && ln -sf "$HOME/.cargo/bin/rustscan" "$mypath/.bin/rustscan"
+    mark_install "$pck" "$rc"
 fi
 safe_cd ..
 ## Port-Scanners-(Passive)
@@ -825,10 +1021,13 @@ safe_cd "Port-Scanners-Passive"
 # https://github.com/s0md3v/Smap
 pck="smap";
 if try_install "$pck"; then
-    wget -O smap.tar.xz https://github.com/s0md3v/Smap/releases/download/0.1.12/smap_0.1.12_linux_amd64.tar.xz
+    gh_dl s0md3v/Smap "${OS_KERNEL}_$(_arch_rx)\\.tar\\.xz$" smap.tar.xz
+    rc=$?
     tar -xf smap.tar.xz
-    ln -s $(pwd)/smap_0.1.12_linux_amd64/smap $mypath/.bin/smap
-    mark_install "$pck"
+    # Asset dir name carries the version; locate the binary rather than hardcode.
+    smapbin="$(find . -maxdepth 2 -type f -name smap | head -1)"
+    [ -n "$smapbin" ] && ln -sf "$(realpath "$smapbin")" "$mypath/.bin/smap"
+    mark_install "$pck" "$rc"
 fi
 safe_cd ..
 ## Recon Frameworks
@@ -839,7 +1038,7 @@ safe_cd "Recon-Frameworks"
 pck="reconftw";
 if try_install "$pck"; then
     git clone https://github.com/six2dez/reconftw --depth 1;
-    cd reconftw/;
+    safe_cd reconftw/;
     ./install.sh;
     # - it says that it install also (Installing Golang tools (44) on $HOME/go/bin/):
     # inscope installed (1/44)
@@ -920,7 +1119,7 @@ if try_install "$pck"; then
 
     # ./reconftw.sh -d target.com -r
     # alias reconftw="$(pwd)/reconftw.sh" 
-    #"echo "alias reconftw=\"$(pwd)/reconftw.sh\"" >>$mypath/.bin/hackertoolkit_bash
+    #"echo "alias reconftw=\"$(pwd)/reconftw.sh\"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/reconftw.sh $mypath/.bin/$pck
     safe_cd ..
     mark_install "$pck"
@@ -930,16 +1129,16 @@ fi
 pck="recon-ng";
 if try_install "$pck"; then
     git clone https://github.com/lanmaster53/recon-ng.git --depth 1;
-    cd recon-ng; 
+    safe_cd recon-ng; 
     python3 -m venv venv;
     reqList=$(sed '/^#/d' REQUIREMENTS | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias recon-ng="$(pwd)/recon-ng" 
     # alias recon-cli="$(pwd)/recon-cli" 
     # alias recon-web="$(pwd)/recon-web" 
-    # echo "alias recon-ng=\"$(pwd)/recon-ng\"" >>$mypath/.bin/hackertoolkit_bash
-    # echo "alias recon-cli=\"$(pwd)/recon-cli\"" >>$mypath/.bin/hackertoolkit_bash
-    # echo "alias recon-web=\"$(pwd)/recon-web\"" >>$mypath/.bin/hackertoolkit_bash
+    # echo "alias recon-ng=\"$(pwd)/recon-ng\"" >>"$mypath/.bin/hackertoolkit_bash"
+    # echo "alias recon-cli=\"$(pwd)/recon-cli\"" >>"$mypath/.bin/hackertoolkit_bash"
+    # echo "alias recon-web=\"$(pwd)/recon-web\"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/recon-ng $mypath/.bin/recon-ng
     ln -s $(pwd)/recon-cli $mypath/.bin/recon-cli
     ln -s $(pwd)/recon-web $mypath/.bin/recon-web
@@ -952,24 +1151,19 @@ fi
 # - of reconftw
 pck="rengine";
 if try_install_dir "$pck" "rengine"; then
-    git clone https://github.com/yogeshojha/rengine --depth 1 
-    cd rengine
-    # - For posgresql password
-    sudo apt install -y postgresql postgresql-contrib
-    echo "ENTER PASSWORD FOR postgres user"
-    sudo passwd postgres
-    echo "---------- Search for POSTGRES_PASSWORD and set the value you put to postgres PASSWORD"
-    echo "---------- PRESS ANY KEY TO CONTINUE"
-    read xxx
-    nano .env
-    # - dotenv file
-    MAX_CONCURRENCY=80
-    MIN_CONCURRENCY=10
-    # if the following command is not executed, it will not currently installed
-    # sudo ./install.sh
-    ln -s $(pwd)/install.sh $mypath/.bin/${pck}-install
+    git clone https://github.com/yogeshojha/rengine --depth 1
+    rc=$?
+    safe_cd rengine
+    # reNgine is a heavy Docker-compose stack with its own guided installer. We
+    # do NOT run it here: the old code changed the system `postgres` account
+    # password (`sudo passwd postgres`) and blocked the whole run in `nano .env`
+    # and `read`. Instead we expose its installer as a command for the user to
+    # run deliberately, and leave a starter .env if the template exists.
+    [ -f .env-dist ] && [ ! -f .env ] && cp .env-dist .env
+    ln -sf "$(pwd)/install.sh" "$mypath/.bin/${pck}-install"
+    warn "rengine: a Docker stack — run '${pck}-install' yourself to deploy it (edit its .env first)."
     safe_cd ..
-    mark_install "$pck"
+    mark_install "$pck" "$rc"
 fi
 safe_cd ..
 ## Shodan Tools
@@ -985,23 +1179,23 @@ if try_install "$pck"; then
     if [ -z  "$(which shodan)" ]; then
         pipx install shodan
     fi
-    cd karma_v2
+    safe_cd karma_v2
     chmod +x karma_v2
     ln -s $(pwd)/$pck $mypath/.bin/$pck
     safe_cd ..
     go install -v github.com/tomnomnom/httprobe@master
     if [ -z  "$(which Interlace)" ]; then
         git clone https://github.com/codingo/Interlace.git --depth 1
-        cd Interlace
+        safe_cd Interlace
         # python3 setup.py install
         python3 -m venv venv
         venv/bin/python3 setup.py build
         venv/bin/python3 setup.py install
         # alias Interlace="$(pwd)/venv/bin/Interlace" 
-        # echo "alias Interlace=\"$(pwd)/venv/bin/Interlace\"" >>$mypath/.bin/hackertoolkit_bash
-        ln -s $(pwd)/venv/bin/Interlace $mypath/.bin/$pck
+        # echo "alias Interlace=\"$(pwd)/venv/bin/Interlace\"" >>"$mypath/.bin/hackertoolkit_bash"
+        ln -sf "$(pwd)/venv/bin/Interlace" "$mypath/.bin/Interlace"
     fi
-    go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
+    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
     go install -v github.com/tomnomnom/anew@master
     safe_cd ..
     mark_install "$pck"
@@ -1030,30 +1224,42 @@ safe_cd ..
 set_category "Screenshotting"
 mkdir -p "Screenshotting"
 safe_cd "Screenshotting"
+### gowitness
+# https://github.com/sensepost/gowitness
+# Actively maintained screenshotter — the recommended replacement for the
+# archived aquatone / abandoned go-stare below.
+pck="gowitness";
+if try_install "$pck"; then
+    go install github.com/sensepost/gowitness@latest
+    mark_install "$pck" $?
+fi
 ### aquatone
 # https://github.com/michenriksen/aquatone
 pck="aquatone";
 if try_install "$pck"; then
-    wget -O aquatone.zip https://github.com/michenriksen/aquatone/releases/download/v1.7.0/aquatone_linux_amd64_1.7.0.zip
-    unzip aquatone.zip
-    cd aquatone/
-    ln -s $(pwd)/aquatone $mypath/.bin/aquatone
-    safe_cd ..
-    mark_install "$pck"
+    # NOTE: aquatone is archived upstream (last release 2019). Kept for
+    # compatibility; consider gowitness/EyeWitness for active screenshotting.
+    # The zip unpacks the `aquatone` binary into the CWD (no subdir), so the old
+    # `cd aquatone/` failed.
+    gh_dl michenriksen/aquatone "${OS_KERNEL}_$(_arch_rx)_.*\\.zip$" aquatone.zip
+    rc=$?
+    unzip -o aquatone.zip
+    ln -sf "$(realpath aquatone)" "$mypath/.bin/aquatone"
+    mark_install "$pck" "$rc"
 fi
 ### eyeballer
 # https://github.com/BishopFox/eyeballer
 pck="eyeballer";
 if try_install "$pck"; then
     git clone https://github.com/BishopFox/eyeballer.git --depth 1
-    cd eyeballer
+    safe_cd eyeballer
     python3 -m venv venv
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ')
     venv/bin/pip install $reqList
     # alias eyeballer="$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py" 
-    # echo "alias eyeballer=\"$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias eyeballer=\"$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1079,10 +1285,13 @@ fi
 # https://github.com/dwisiswant0/go-stare
 pck="go-stare";
 if try_install "$pck"; then
-    wget -O go-stare.tar.gz https://github.com/dwisiswant0/go-stare/releases/download/v0.0.3-dev/go-stare_0.0.3-dev_linux_arm64.tar.gz
+    # Was hardcoded to the arm64 asset — downloaded a non-runnable binary on
+    # amd64 hosts. Use the detected arch.
+    wget -O go-stare.tar.gz "https://github.com/dwisiswant0/go-stare/releases/download/v0.0.3-dev/go-stare_0.0.3-dev_${OS_KERNEL}_${ARCH}.tar.gz"
+    rc=$?
     tar -C . -xzf go-stare.tar.gz
-    ln -s $(pwd)/go-stare $mypath/.bin/go-stare
-    mark_install "$pck"
+    ln -sf "$(pwd)/go-stare" "$mypath/.bin/go-stare"
+    mark_install "$pck" "$rc"
 fi
 ### httpscreenshot
 # https://github.com/breenmachine/httpscreenshot
@@ -1090,14 +1299,14 @@ pck="httpscreenshot";
 if try_install "$pck"; then
     sudo apt-get install swig  libssl-dev; # python-dev 
     git clone https://github.com/breenmachine/httpscreenshot.git --depth 1
-    cd httpscreenshot
+    safe_cd httpscreenshot
     python3 -m venv venv
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ')
     venv/bin/pip install $reqList
     # alias httpscreenshot="$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py" 
-    # echo "alias httpscreenshot=\"$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias httpscreenshot=\"$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1149,14 +1358,14 @@ pck="altdns";
 if try_install "$pck"; then
     # pip3 install py-altdns==1.0.2
     git clone https://github.com/infosec-au/altdns.git --depth 1
-    cd altdns
+    safe_cd altdns
     python3 -m venv venv
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ')
     venv/bin/pip install $reqList
     venv/bin/python3 setup.py build
     venv/bin/python3 setup.py install
     # alias altdns="$(pwd)/venv/bin/altdns" 
-    # echo "alias altdns=\"$(pwd)/venv/bin/altdns\"" >>$mypath/.bin/hackertoolkit_bash
+    # echo "alias altdns=\"$(pwd)/venv/bin/altdns\"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/venv/bin/altdns $mypath/.bin/altdns
     safe_cd ..
     mark_install "$pck"
@@ -1204,15 +1413,15 @@ fi
 pck="dnsgen";
 if try_install "$pck"; then
     git clone https://github.com/AlephNullSK/dnsgen --depth 1
-    cd dnsgen/
+    safe_cd dnsgen/
     if [ -z  "$(which poetry)" ]; then
         pipx install poetry
     fi
     poetry install
     # alias dnsgen="poetry run $(pwd)/dnsgen" 
-    # echo "alias dnsgen=\"poetry run $(pwd)/dnsgen\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}poetry run $(pwd)/dnsgen" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias dnsgen=\"poetry run $(pwd)/dnsgen\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}poetry run $(pwd)/dnsgen \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1230,7 +1439,7 @@ fi
 pck="findomain";
 if try_install "$pck"; then
     git clone https://github.com/findomain/findomain.git;
-    cd findomain;
+    safe_cd findomain;
     cargo build --release;
     cp target/release/findomain $mypath/.bin ;
     safe_cd ..
@@ -1254,24 +1463,25 @@ fi
 # https://github.com/d3mondev/puredns
 pck="puredns";
 if try_install "$pck"; then
-    wget https://github.com/d3mondev/puredns/releases/download/v2.1.1/puredns-Linux-amd64.tgz;
-    tar -C . -xzf puredns-Linux-amd64.tgz;
-    ln -s $(realpath puredns) $mypath/.bin/puredns
-    mark_install "$pck"
+    gh_dl d3mondev/puredns "${OS_KERNEL}-$(_arch_rx)\\.tgz$" puredns.tgz
+    rc=$?
+    tar -C . -xzf puredns.tgz
+    ln -sf "$(realpath puredns)" "$mypath/.bin/puredns"
+    mark_install "$pck" "$rc"
 fi
 ### regulator
 # https://github.com/cramppet/regulator
 pck="regulator";
 if try_install "$pck"; then
     git clone https://github.com/cramppet/regulator.git --depth 1;
-    cd regulator;
+    safe_cd regulator;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias regulator="$(pwd)/venv/bin/python3 $(pwd)/main.py" 
-    # echo "alias regulator=\"$(pwd)/venv/bin/python3 $(pwd)/main.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/main.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias regulator=\"$(pwd)/venv/bin/python3 $(pwd)/main.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/main.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1302,14 +1512,14 @@ fi
 pck="sublist3r";
 if try_install "$pck"; then
     git clone https://github.com/aboul3la/Sublist3r.git --depth 1;
-    cd Sublist3r;
+    safe_cd Sublist3r;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     venv/bin/python3 setup.py build;
     venv/bin/python3 setup.py install;
     # alias Sublist3r="$(pwd)/venv/bin/Sublist3r " 
-    # echo "alias Sublist3r=\"$(pwd)/venv/bin/Sublist3r \"" >>$mypath/.bin/hackertoolkit_bash
+    # echo "alias Sublist3r=\"$(pwd)/venv/bin/Sublist3r \"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/venv/bin/sublist3r $mypath/.bin/sublist3r
     safe_cd ..
     mark_install "$pck"
@@ -1323,10 +1533,11 @@ safe_cd "Web-Technology-Enumeration"
 # https://github.com/rverton/webanalyze
 pck="webanalyze";
 if try_install "$pck"; then
-    wget -O $pck.tar.gz https://github.com/rverton/webanalyze/releases/download/v0.4.1/webanalyze_Linux_x86_64.tar.gz;
-    tar -C . -xzf $pck.tar.gz;
-    ln -s $(realpath webanalyze) $mypath/.bin/webanalyze
-    mark_install "$pck"
+    gh_dl rverton/webanalyze "${OS_KERNEL}_$(_arch_rx)\\.tar\\.gz$" "$pck.tar.gz"
+    rc=$?
+    tar -C . -xzf "$pck.tar.gz"
+    ln -sf "$(realpath webanalyze)" "$mypath/.bin/webanalyze"
+    mark_install "$pck" "$rc"
 fi
 ### WhatWeb
 # https://github.com/urbanadventurer/WhatWeb
@@ -1348,25 +1559,32 @@ safe_cd "Active-Directory"
 # https://github.com/BloodHoundAD/BloodHound
 pck="BloodHound";
 if try_install "$pck"; then
-    wget https://github.com/BloodHoundAD/BloodHound/releases/download/v4.3.1/BloodHound-linux-x64.zip;
-    unzip BloodHound-linux-x64.zip;
-    cd BloodHound-linux-x64
-    ln -s $(realpath BloodHound ) $mypath/.bin/BloodHound 
-    safe_cd ..
-    mark_install "$pck"
+    # The old BloodHoundAD v4.3.1 Electron app is EOL. BloodHound is now "CE",
+    # a Docker-compose stack from SpecterOps. We fetch its compose file and
+    # expose a `bloodhound-ce` launcher instead of a dead single binary.
+    wget -qO docker-compose.yml "https://ghst.ly/getbhce"
+    rc=$?
+    printf '%bexec docker compose -f %s "$@"\n' "${sh}" "$(pwd)/docker-compose.yml" > "$mypath/.bin/bloodhound-ce"
+    chmod +x "$mypath/.bin/bloodhound-ce"
+    warn "BloodHound CE is a Docker stack — run 'bloodhound-ce up' to start it (first run prints the admin password)."
+    mark_install "$pck" "$rc"
 fi
 ### Empire
 # - This package is no longer support
 # https://github.com/EmpireProject/Empire
 pck="empire";
 if try_install "$pck"; then
-    git clone https://github.com/EmpireProject/Empire.git --depth 1;
-    cd Empire;
-    # sudo ./setup/install.sh;
-    chmod +x setup/install.sh;
-     ln -s $(realpath setup/install.sh ) $mypath/.bin/empire-install.sh 
+    # EmpireProject/Empire was archived in 2020; the maintained fork is
+    # BC-SECURITY/Empire. Clone recursively (it uses submodules) and expose its
+    # installer rather than running it unattended.
+    git clone --recursive https://github.com/BC-SECURITY/Empire.git --depth 1
+    rc=$?
+    safe_cd Empire
+    [ -f setup/install.sh ] && chmod +x setup/install.sh && \
+        ln -sf "$(realpath setup/install.sh)" "$mypath/.bin/empire-install.sh"
+    warn "Empire (BC-SECURITY): run 'empire-install.sh' to finish its setup."
     safe_cd ..
-    mark_install "$pck"
+    mark_install "$pck" "$rc"
 fi
 ### PowerSploit
 # https://github.com/PowerShellMafia/PowerSploit
@@ -1378,10 +1596,10 @@ if try_install_dir "$pck" "$pck"; then
     # - Powershell is not supported on Debian 12 yet
     # sudo apt-get update;
     # sudo apt-get install -y powershell;
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.2/powershell_7.4.2-1.deb_amd64.deb
-    sudo dpkg -i powershell_7.4.2-1.deb_amd64.deb
+    gh_dl PowerShell/PowerShell "deb_$(_arch_rx)\\.deb$" powershell.deb && sudo dpkg -i powershell.deb
     git clone https://github.com/PowerShellMafia/PowerSploit.git --depth 1
-    mark_install "$pck"
+    rc=$?
+    mark_install "$pck" "$rc"
 fi
 safe_cd ..
 ## Linux-Privilege-Escalation
@@ -1393,7 +1611,7 @@ safe_cd "Linux-Privilege-Escalation"
 pck="LinEnum";
 if try_install "$pck"; then
     git clone https://github.com/rebootuser/LinEnum.git --depth 1
-    cd LinEnum
+    safe_cd LinEnum
     ln -s $(realpath LinEnum.sh ) $mypath/.bin/LinEnum 
     safe_cd ..
     mark_install "$pck"
@@ -1403,11 +1621,13 @@ fi
 # - This package installed the tool and inmediately run it
 pck="linpeas";
 if try_install "$pck"; then
-    # curl -L https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh | sh
-    curl https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh >linpeas.sh
+    # Needs -L: the release-asset URL 302-redirects, so without it the file was
+    # an empty/HTML redirect stub, not the script.
+    curl -fsSL -o linpeas.sh "https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh"
+    rc=$?
     chmod +x linpeas.sh
-    ln -s $(realpath linpeas.sh ) $mypath/.bin/linpeas 
-    mark_install "$pck"
+    ln -sf "$(realpath linpeas.sh)" "$mypath/.bin/linpeas"
+    mark_install "$pck" "$rc"
 fi
 ### linuxprivcheck
 # https://github.com/cervoise/linuxprivcheck
@@ -1417,7 +1637,7 @@ if try_install "$pck"; then
         pipx install pyinstaller;
     fi
     git clone https://github.com/cervoise/linuxprivcheck.git;
-    cd linuxprivcheck
+    safe_cd linuxprivcheck
     # python3 -m PyInstaller --onefile linuxprivchecker3.py;
     pyinstaller --onefile linuxprivchecker3.py;
     ln -s $(realpath dist/linuxprivchecker3 ) $mypath/.bin/linuxprivchecker3
@@ -1441,16 +1661,16 @@ safe_cd "Password-Spraying-Stuffing-Brute-Forcing-Cracking"
 pck="CredMaster";
 if try_install "$pck"; then
     git clone https://github.com/knavesec/CredMaster.git --depth 1
-    cd CredMaster
+    safe_cd CredMaster
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     echo "Remember, if unsure how to create correct keys see this this: https://bond-o.medium.com/aws-pass-through-proxy-84f1f7fa4b4b"
     sleep 3
     # alias CredMaster="$(pwd)/venv/bin/python3 $(pwd)/credmaster.py " 
-    # echo "alias CredMaster=\"$(pwd)/venv/bin/python3 $(pwd)/credmaster.py \"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/credmaster.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias CredMaster=\"$(pwd)/venv/bin/python3 $(pwd)/credmaster.py \"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/credmaster.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1458,30 +1678,34 @@ fi
 # https://github.com/hashcat/hashcat
 pck="hashcat";
 if try_install "$pck"; then
-    wget -O hashcat.7z https://hashcat.net/files/hashcat-6.2.6.7z;
-    7z x hashcat.7z;
-    ln -s $(realpath hashcat-6.2.6/hashcat.bin ) $mypath/.bin/hashcat
-    mark_install "$pck"
+    HASHCAT_VER="8.0.0"
+    wget -O hashcat.7z "https://hashcat.net/files/hashcat-${HASHCAT_VER}.7z"
+    rc=$?
+    7z x -y hashcat.7z
+    ln -sf "$(realpath "hashcat-${HASHCAT_VER}/hashcat.bin")" "$mypath/.bin/hashcat"
+    mark_install "$pck" "$rc"
 fi
 ### thc-hydra
 # https://github.com/vanhauser-thc/thc-hydra
 pck="hydra-wizard";
 if try_install "$pck"; then
-    apt-get install libssl-dev libssh-dev libidn11-dev libpcre3-dev \
-                    libgtk2.0-dev libmysqlclient-dev libpq-dev libsvn-dev \
-                    firebird-dev libmemcached-dev libgpg-error-dev \
-                    libgcrypt11-dev libgcrypt20-dev
-    wget https://github.com/vanhauser-thc/thc-hydra/archive/refs/tags/v9.5.zip
-    unzip v9.5.zip;
-    cd thc-hydra-9.5;
-    ./configure;
-    make;
-    make install;
-    ln -s $(realpath xhydra ) $mypath/.bin/xhydra
-    ln -s $(realpath hydra-wizard.sh ) $mypath/.bin/hydra-wizard
-    ln -s $(realpath pw-inspector ) $mypath/.bin/pw-inspector
-    ln -s $(realpath dpl4hydra.sh ) $mypath/.bin/dpl4hydra
-    mark_install "$pck"
+    # Needs sudo for apt/make install; dropped libgcrypt11-dev (gone from current
+    # Debian/Kali). Resolve the newest hydra tag instead of pinning v9.5.
+    sudo apt-get -y install libssl-dev libssh-dev libidn11-dev libpcre3-dev \
+                    libgtk2.0-dev default-libmysqlclient-dev libpq-dev libsvn-dev \
+                    firebird-dev libmemcached-dev libgpg-error-dev libgcrypt20-dev
+    HYDRA_TAG="$(curl -fsSL https://api.github.com/repos/vanhauser-thc/thc-hydra/releases/latest | jq -r .tag_name)"
+    HYDRA_TAG="${HYDRA_TAG:-v9.5}"
+    wget "https://github.com/vanhauser-thc/thc-hydra/archive/refs/tags/${HYDRA_TAG}.zip"
+    unzip -o "${HYDRA_TAG}.zip";
+    safe_cd "thc-hydra-${HYDRA_TAG#v}"
+    ./configure && make
+    rc=$?
+    sudo make install
+    for b in xhydra hydra-wizard.sh pw-inspector dpl4hydra.sh; do
+        [ -f "$b" ] && ln -sf "$(realpath "$b")" "$mypath/.bin/$(basename "$b" .sh)"
+    done
+    mark_install "$pck" "$rc"
     make clean
     echo
     safe_cd ..
@@ -1498,16 +1722,25 @@ if try_install "$pck"; then
     if [ ! -f  "john/run/john" ]; then
         sudo apt install nss-passwords libkrb5-dev libgmp-dev libbz2-1.0 libbz2-dev;
         git clone https://github.com/openwall/john.git --depth 1;
-        cd john/src;
+        safe_cd john/src;
         ./configure && make;
         make install
         safe_cd ..
         # ln -s $(realpath run/john ) $mypath/.bin/john
         # - john has many tools, so it's better add the run path to the system executable PATH
-        export PATH="$PATH:$(realpath run/ )"
-        echo "export PATH=\"\$PATH:$(realpath run/ )\"" >>$mypath/.bin/hackertoolkit_bash
-        source $(realpath run/john.bash_completion)
-        source $(realpath run/john.bash_completion) >>$mypath/.bin/hackertoolkit_bash
+        JOHN_RUN="$(realpath run/)"
+        export PATH="$PATH:$JOHN_RUN"
+        # Guard the PATH line so re-runs don't pile up duplicates.
+        if ! grep -qF "$JOHN_RUN" "$mypath/.bin/hackertoolkit_bash" 2>/dev/null; then
+            echo "export PATH=\"\$PATH:$JOHN_RUN\"" >>"$mypath/.bin/hackertoolkit_bash"
+        fi
+        # shellcheck source=/dev/null
+        . "$JOHN_RUN/john.bash_completion"
+        # `source >> file` ran the file and saved its (empty) stdout. To persist
+        # the completion we must COPY it.
+        if ! grep -qF "john.bash_completion" "$mypath/.bin/hackertoolkit_bash" 2>/dev/null; then
+            printf '. %q\n' "$JOHN_RUN/john.bash_completion" >>"$mypath/.bin/hackertoolkit_bash"
+        fi
         safe_cd ..
         mark_install "$pck"
 fi
@@ -1520,7 +1753,7 @@ fi
 pck="medusa";
 if try_install "$pck"; then
     git clone https://github.com/jmk-foofus/medusa.git --depth 1;
-    cd medusa;
+    safe_cd medusa;
     ./configure --prefix=$(pwd) --exec-prefix=$(pwd) && make  && make install ;
     ln -s $(realpath bin/medusa ) $mypath/.bin/medusa
     mark_install "$pck"
@@ -1568,11 +1801,11 @@ safe_cd "Windows-Privilege-Escalation"
 pck="wesng";
 if try_install "$pck"; then
     git clone https://github.com/bitsadmin/wesng --depth 1;
-    cd wesng;
+    safe_cd wesng;
     # alias wes.py="python3 $(pwd)/wes.py " ;
-    # echo "alias wes.py=\"python3 $(pwd)/wes.py \"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}python3 $(pwd)/wes.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias wes.py=\"python3 $(pwd)/wes.py \"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}python3 $(pwd)/wes.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1581,7 +1814,7 @@ fi
 pck="winPEAS";
 if try_install_dir "$pck" "winPEAS"; then
     mkdir -p winPEAS;
-    cd winPEAS;
+    safe_cd winPEAS;
     wget https://github.com/peass-ng/PEASS-ng/releases/download/20240421-825f642d/winPEAS.bat;
     wget https://github.com/peass-ng/PEASS-ng/releases/download/20240421-825f642d/winPEASx64.exe;
     wget https://github.com/peass-ng/PEASS-ng/releases/download/20240421-825f642d/winPEASx64_ofs.exe;
@@ -1598,14 +1831,14 @@ safe_cd "SQL-Injection"
 pck="ghauri";
 if try_install "$pck"; then
     git clone https://github.com/r0oth3x49/ghauri.git --depth 1;
-    cd ghauri;
+    safe_cd ghauri;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     venv/bin/python3 setup.py build;
     venv/bin/python3 setup.py install;
     # alias ghauri="$(pwd)/venv/bin/ghauri" ;
-    # echo "alias ghauri=\"$(pwd)/venv/bin/ghauri\"" >>$mypath/.bin/hackertoolkit_bash;
+    # echo "alias ghauri=\"$(pwd)/venv/bin/ghauri\"" >>"$mypath/.bin/hackertoolkit_bash";
     ln -s $(pwd)/venv/bin/ghauri $mypath/.bin/$pck
     safe_cd ..
     mark_install "$pck"
@@ -1615,14 +1848,14 @@ fi
 pck="hbsqli";
 if try_install "$pck"; then
     git clone https://github.com/SAPT01/HBSQLI.git --depth 1;
-    cd HBSQLI;
+    safe_cd HBSQLI;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias hbsqli="$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py" ;
-    # echo "alias hbsqli=\"$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias hbsqli=\"$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1631,11 +1864,11 @@ fi
 pck="sqlmap";
 if try_install "$pck"; then
     git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git sqlmap-dev 
-    cd sqlmap-dev
+    safe_cd sqlmap-dev
     # alias sqlmap="python3 $(pwd)/sqlmap.py" ;
-    # echo "alias sqlmap=\"python3 $(pwd)/sqlmap.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}python3 $(pwd)/sqlmap.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias sqlmap=\"python3 $(pwd)/sqlmap.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}python3 $(pwd)/sqlmap.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1665,14 +1898,14 @@ fi
 pck="AllForOne";
 if try_install "$pck"; then
     git clone https://github.com/AggressiveUser/AllForOne.git --depth 1;
-    cd AllForOne;
+    safe_cd AllForOne;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias AllForOne="$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py" ;
-    # echo "alias AllForOne=\"$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias AllForOne=\"$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1687,10 +1920,16 @@ fi
 # https://github.com/retirejs/retire.js/
 pck="retire";
 if try_install "$pck"; then
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash;
-    nvm install 16 2>/dev/null;
-    npm install -g retire;
-    mark_install "$pck"
+    # nvm is a shell function, not a binary — it must be sourced before use, or
+    # `nvm install` is "command not found" in this non-interactive script.
+    export NVM_DIR="$HOME/.nvm"
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    nvm install --lts
+    npm install -g retire
+    rc=$?
+    mark_install "$pck" "$rc"
 fi
 safe_cd ..
 safe_cd ..
@@ -1708,19 +1947,20 @@ pck="NimPlant";
 if try_install "$pck"; then
     sudo apt install mingw-w64;
     git clone https://github.com/chvancooten/NimPlant.git --depth 1;
-    cd NimPlant;
+    safe_cd NimPlant;
     wget https://github.com/nim-lang/nimble/releases/download/latest/nimble-linux_x64.tar.gz;
     tar -C . -xzf nimble-linux_x64.tar.gz;
-    cd client; 
+    safe_cd client; 
     ../nimble install -d
-    cd ../server;
+    safe_cd ../server;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
-    # alias NimPlant="$(pwd)/server/venv/bin/python3 $(pwd)/NimPlant.py" ;
-    # echo "alias NimPlant=\"$(pwd)/server/venv/bin/python3 $(pwd)/NimPlant.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/server/venv/bin/python3 $(pwd)/NimPlant.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # CWD here is NimPlant/server: the venv is ./venv and NimPlant.py is in the
+    # repo root (parent). The old shim doubled 'server/' and pointed both paths
+    # at non-existent files.
+    printf '%b%s "$@"\n' "${sh}" "$(pwd)/venv/bin/python3 $(dirname "$(pwd)")/NimPlant.py" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     safe_cd ..
     mark_install "$pck"
@@ -1765,14 +2005,14 @@ fi
 pck="ShadowClone";
 if try_install "$pck"; then
     git clone https://github.com/fyoorer/ShadowClone.git --depth 1;
-    cd ShadowClone;
+    safe_cd ShadowClone;
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias ShadowClone="$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py" ;
-    # echo "alias ShadowClone=\"$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias ShadowClone=\"$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1811,7 +2051,7 @@ safe_cd "Stealth"
 pck="evilgophish";
 if try_install "$pck"; then
     git clone https://github.com/fin3ss3g0d/evilgophish.git --depth 1;
-    cd evilgophish/
+    safe_cd evilgophish/
     chmod +x setup.sh;
     ln -s $(realpath setup.sh ) $mypath/.bin/evilgophish
     safe_cd ..
@@ -1822,14 +2062,14 @@ fi
 pck="fire";
 if try_install "$pck"; then
     git clone https://github.com/ustayready/fireprox --depth 1
-    cd fireprox
+    safe_cd fireprox
     python3 -m venv venv;
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias fire="$(pwd)/venv/bin/python3 $(pwd)/fire.py" ;
-    # echo "alias fire=\"$(pwd)/venv/bin/python3 $(pwd)/fire.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/fire.py" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias fire=\"$(pwd)/venv/bin/python3 $(pwd)/fire.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/fire.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1837,10 +2077,11 @@ fi
 # https://github.com/kitabisa/mubeng
 pck="mubeng";
 if try_install "$pck"; then
-    wget -O mubeng https://github.com/kitabisa/mubeng/releases/download/v0.14.2/mubeng_0.14.2_linux_amd64
+    gh_dl kitabisa/mubeng "_${OS_KERNEL}_$(_arch_rx)$" mubeng
+    rc=$?
     chmod +x mubeng
-    ln -s $(realpath mubeng ) $mypath/.bin/mubeng
-    mark_install "$pck"
+    ln -sf "$(realpath mubeng)" "$mypath/.bin/mubeng"
+    mark_install "$pck" "$rc"
 fi
 ### proxycannon-ng
 # https://github.com/proxycannon/proxycannon-ng
@@ -1851,7 +2092,7 @@ pck="proxycannon-ng";
 if try_install_dir "$pck" "proxycannon-ng"; then
     sudo apt install openvpn easy-rsa iptables
     git clone https://github.com/proxycannon/proxycannon-ng.git --depth 1;
-    cd proxycannon-ng/setup
+    safe_cd proxycannon-ng/setup
     # sudo bash install.sh
     safe_cd ..
     mark_install "$pck"
@@ -1868,7 +2109,7 @@ fi
 # =============================================================================
 # Completion summary
 # =============================================================================
-cd "$mypath" 2>/dev/null
+safe_cd "$mypath" 2>/dev/null
 
 # Tally what actually landed (one-line each in install.tmp / not-install.tmp)
 INSTALLED_COUNT=0
