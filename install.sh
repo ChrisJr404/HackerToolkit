@@ -560,9 +560,9 @@ if try_install "$pck"; then
     git clone 'https://github.com/expl0itabl3/check_mdi.git' --depth 1
     safe_cd check_mdi
     # alias check_mdi="python3 $(pwd)/check_mdi.py" 
-    # echo "alias check_mdi=\"python3 $(pwd)/check_mdi.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}python3 $(pwd)/check_mdi.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias check_mdi=\"python3 $(pwd)/check_mdi.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}python3 $(pwd)/check_mdi.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -682,9 +682,9 @@ if try_install "$pck"; then
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias linkedin2username="$(pwd)/venv/bin/python3 linkedin2username.py" ;
-    # echo "alias linkedin2username=\"$(pwd)/venv/bin/python3 linkedin2username.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkedin2username.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias linkedin2username=\"$(pwd)/venv/bin/python3 linkedin2username.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkedin2username.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -696,8 +696,8 @@ if try_install "$pck"; then
     echo ""
     echo "https://addons.mozilla.org/en-US/firefox/addon/weakestlink/"
     echo ""
-    echo  -e "${sh}echo plugin link: 'https://addons.mozilla.org/en-US/firefox/addon/weakestlink/'" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    echo  -e "${sh}echo plugin link: 'https://addons.mozilla.org/en-US/firefox/addon/weakestlink/'" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     echo "Run the WeakestLink command tu see again this"
     sleep 2
 else
@@ -730,7 +730,7 @@ if try_install "$pck"; then
     chmod u+x ./cewl.rb
     ./cewl.rb -h
     # alias cewl="$(pwd)/cewl.rb" ;
-    # echo "alias cewl=\"$(pwd)/cewl.rb\"" >>$mypath/.bin/hackertoolkit_bash;
+    # echo "alias cewl=\"$(pwd)/cewl.rb\"" >>"$mypath/.bin/hackertoolkit_bash";
     ln -s $(pwd)/cewl.rb $mypath/.bin/$pck
     safe_cd ..
     mark_install "$pck"
@@ -800,7 +800,7 @@ if try_install "$pck"; then
     venv/bin/python3 setup.py build;
     venv/bin/python3 setup.py install;
     # alias wfuzz="$(pwd)/venv/bin/wfuzz " 
-    # echo "alias wfuzz=\"$(pwd)/venv/bin/wfuzz \"" >>$mypath/.bin/hackertoolkit_bash
+    # echo "alias wfuzz=\"$(pwd)/venv/bin/wfuzz \"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/venv/bin/wfuzz $mypath/.bin/wfuzz
     safe_cd ..
     mark_install "$pck"
@@ -872,9 +872,9 @@ if try_install "$pck"; then
     venv/bin/python3 setup.py build;
     venv/bin/python3 setup.py install;
     # alias linkfinder="$(pwd)/venv/bin/python3 linkfinder.py";
-    # echo "alias linkfinder=\"$(pwd)/venv/bin/python3 linkfinder.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkfinder.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias linkfinder=\"$(pwd)/venv/bin/python3 linkfinder.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/linkfinder.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1074,7 +1074,7 @@ if try_install "$pck"; then
 
     # ./reconftw.sh -d target.com -r
     # alias reconftw="$(pwd)/reconftw.sh" 
-    #"echo "alias reconftw=\"$(pwd)/reconftw.sh\"" >>$mypath/.bin/hackertoolkit_bash
+    #"echo "alias reconftw=\"$(pwd)/reconftw.sh\"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/reconftw.sh $mypath/.bin/$pck
     safe_cd ..
     mark_install "$pck"
@@ -1091,9 +1091,9 @@ if try_install "$pck"; then
     # alias recon-ng="$(pwd)/recon-ng" 
     # alias recon-cli="$(pwd)/recon-cli" 
     # alias recon-web="$(pwd)/recon-web" 
-    # echo "alias recon-ng=\"$(pwd)/recon-ng\"" >>$mypath/.bin/hackertoolkit_bash
-    # echo "alias recon-cli=\"$(pwd)/recon-cli\"" >>$mypath/.bin/hackertoolkit_bash
-    # echo "alias recon-web=\"$(pwd)/recon-web\"" >>$mypath/.bin/hackertoolkit_bash
+    # echo "alias recon-ng=\"$(pwd)/recon-ng\"" >>"$mypath/.bin/hackertoolkit_bash"
+    # echo "alias recon-cli=\"$(pwd)/recon-cli\"" >>"$mypath/.bin/hackertoolkit_bash"
+    # echo "alias recon-web=\"$(pwd)/recon-web\"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/recon-ng $mypath/.bin/recon-ng
     ln -s $(pwd)/recon-cli $mypath/.bin/recon-cli
     ln -s $(pwd)/recon-web $mypath/.bin/recon-web
@@ -1147,7 +1147,7 @@ if try_install "$pck"; then
         venv/bin/python3 setup.py build
         venv/bin/python3 setup.py install
         # alias Interlace="$(pwd)/venv/bin/Interlace" 
-        # echo "alias Interlace=\"$(pwd)/venv/bin/Interlace\"" >>$mypath/.bin/hackertoolkit_bash
+        # echo "alias Interlace=\"$(pwd)/venv/bin/Interlace\"" >>"$mypath/.bin/hackertoolkit_bash"
         ln -sf "$(pwd)/venv/bin/Interlace" "$mypath/.bin/Interlace"
     fi
     go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
@@ -1203,9 +1203,9 @@ if try_install "$pck"; then
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ')
     venv/bin/pip install $reqList
     # alias eyeballer="$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py" 
-    # echo "alias eyeballer=\"$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias eyeballer=\"$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/eyeballer.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1250,9 +1250,9 @@ if try_install "$pck"; then
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ')
     venv/bin/pip install $reqList
     # alias httpscreenshot="$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py" 
-    # echo "alias httpscreenshot=\"$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias httpscreenshot=\"$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/httpscreenshot.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1311,7 +1311,7 @@ if try_install "$pck"; then
     venv/bin/python3 setup.py build
     venv/bin/python3 setup.py install
     # alias altdns="$(pwd)/venv/bin/altdns" 
-    # echo "alias altdns=\"$(pwd)/venv/bin/altdns\"" >>$mypath/.bin/hackertoolkit_bash
+    # echo "alias altdns=\"$(pwd)/venv/bin/altdns\"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/venv/bin/altdns $mypath/.bin/altdns
     safe_cd ..
     mark_install "$pck"
@@ -1365,9 +1365,9 @@ if try_install "$pck"; then
     fi
     poetry install
     # alias dnsgen="poetry run $(pwd)/dnsgen" 
-    # echo "alias dnsgen=\"poetry run $(pwd)/dnsgen\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}poetry run $(pwd)/dnsgen \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias dnsgen=\"poetry run $(pwd)/dnsgen\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}poetry run $(pwd)/dnsgen \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1425,9 +1425,9 @@ if try_install "$pck"; then
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias regulator="$(pwd)/venv/bin/python3 $(pwd)/main.py" 
-    # echo "alias regulator=\"$(pwd)/venv/bin/python3 $(pwd)/main.py\"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/main.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias regulator=\"$(pwd)/venv/bin/python3 $(pwd)/main.py\"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/main.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1465,7 +1465,7 @@ if try_install "$pck"; then
     venv/bin/python3 setup.py build;
     venv/bin/python3 setup.py install;
     # alias Sublist3r="$(pwd)/venv/bin/Sublist3r " 
-    # echo "alias Sublist3r=\"$(pwd)/venv/bin/Sublist3r \"" >>$mypath/.bin/hackertoolkit_bash
+    # echo "alias Sublist3r=\"$(pwd)/venv/bin/Sublist3r \"" >>"$mypath/.bin/hackertoolkit_bash"
     ln -s $(pwd)/venv/bin/sublist3r $mypath/.bin/sublist3r
     safe_cd ..
     mark_install "$pck"
@@ -1614,9 +1614,9 @@ if try_install "$pck"; then
     echo "Remember, if unsure how to create correct keys see this this: https://bond-o.medium.com/aws-pass-through-proxy-84f1f7fa4b4b"
     sleep 3
     # alias CredMaster="$(pwd)/venv/bin/python3 $(pwd)/credmaster.py " 
-    # echo "alias CredMaster=\"$(pwd)/venv/bin/python3 $(pwd)/credmaster.py \"" >>$mypath/.bin/hackertoolkit_bash
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/credmaster.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias CredMaster=\"$(pwd)/venv/bin/python3 $(pwd)/credmaster.py \"" >>"$mypath/.bin/hackertoolkit_bash"
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/credmaster.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1749,9 +1749,9 @@ if try_install "$pck"; then
     git clone https://github.com/bitsadmin/wesng --depth 1;
     safe_cd wesng;
     # alias wes.py="python3 $(pwd)/wes.py " ;
-    # echo "alias wes.py=\"python3 $(pwd)/wes.py \"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}python3 $(pwd)/wes.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias wes.py=\"python3 $(pwd)/wes.py \"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}python3 $(pwd)/wes.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1784,7 +1784,7 @@ if try_install "$pck"; then
     venv/bin/python3 setup.py build;
     venv/bin/python3 setup.py install;
     # alias ghauri="$(pwd)/venv/bin/ghauri" ;
-    # echo "alias ghauri=\"$(pwd)/venv/bin/ghauri\"" >>$mypath/.bin/hackertoolkit_bash;
+    # echo "alias ghauri=\"$(pwd)/venv/bin/ghauri\"" >>"$mypath/.bin/hackertoolkit_bash";
     ln -s $(pwd)/venv/bin/ghauri $mypath/.bin/$pck
     safe_cd ..
     mark_install "$pck"
@@ -1799,9 +1799,9 @@ if try_install "$pck"; then
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias hbsqli="$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py" ;
-    # echo "alias hbsqli=\"$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias hbsqli=\"$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/hbsqli.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1812,9 +1812,9 @@ if try_install "$pck"; then
     git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git sqlmap-dev 
     safe_cd sqlmap-dev
     # alias sqlmap="python3 $(pwd)/sqlmap.py" ;
-    # echo "alias sqlmap=\"python3 $(pwd)/sqlmap.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}python3 $(pwd)/sqlmap.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias sqlmap=\"python3 $(pwd)/sqlmap.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}python3 $(pwd)/sqlmap.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1849,9 +1849,9 @@ if try_install "$pck"; then
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias AllForOne="$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py" ;
-    # echo "alias AllForOne=\"$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias AllForOne=\"$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/AllForOne.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -1956,9 +1956,9 @@ if try_install "$pck"; then
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias ShadowClone="$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py" ;
-    # echo "alias ShadowClone=\"$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias ShadowClone=\"$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/ShadowClone.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
@@ -2013,9 +2013,9 @@ if try_install "$pck"; then
     reqList=$(sed '/^#/d' requirements.txt | tr '\n' ' ');
     venv/bin/pip install $reqList;
     # alias fire="$(pwd)/venv/bin/python3 $(pwd)/fire.py" ;
-    # echo "alias fire=\"$(pwd)/venv/bin/python3 $(pwd)/fire.py\"" >>$mypath/.bin/hackertoolkit_bash;
-    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/fire.py \"\$@\"" > $mypath/.bin/$pck
-    chmod +x $mypath/.bin/$pck
+    # echo "alias fire=\"$(pwd)/venv/bin/python3 $(pwd)/fire.py\"" >>"$mypath/.bin/hackertoolkit_bash";
+    echo  -e "${sh}$(pwd)/venv/bin/python3 $(pwd)/fire.py \"\$@\"" > "$mypath/.bin/$pck"
+    chmod +x "$mypath/.bin/$pck"
     safe_cd ..
     mark_install "$pck"
 fi
