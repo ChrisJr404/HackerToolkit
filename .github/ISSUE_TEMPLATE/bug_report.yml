@@ -1,0 +1,67 @@
+name: Bug report
+description: Report a problem installing or running the toolkit (install.sh or the manifest).
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. This repository is an **installer and catalog** for
+        third-party security tools.
+
+        - A bug in a **tool itself** belongs upstream (see the links in `README.md`).
+        - A **security vulnerability** in the installer (insecure download,
+          compromised/typosquatted upstream, command injection) should go through a
+          private Security Advisory instead — see `SECURITY.md`. Do not file it here.
+
+  - type: input
+    id: distro-arch
+    attributes:
+      label: Distro / architecture
+      description: "Output of: `. /etc/os-release; echo \"$PRETTY_NAME $(uname -m)\"`"
+      placeholder: "Kali GNU/Linux Rolling x86_64"
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact install.sh command you ran
+      description: The full command line, including every flag.
+      placeholder: "./install.sh --only=ffuf,gobuster"
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor-output
+    attributes:
+      label: "`./install.sh doctor` output"
+      description: Paste the complete output of `./install.sh doctor`.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened?
+      description: Include the error output. If a tool failed to install, attach or paste `not-install.tmp`.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Logs, screenshots, or other context (optional).
+    validations:
+      required: false
