@@ -1,0 +1,15 @@
+# The installer builds its entire tool tree INTO a dir named like the repo.
+# Never commit the downloaded/compiled third-party tools or the Go toolchain.
+/HackerToolkit/
+/toolkit/
+.bin/
+
+# Per-run status logs written by install.sh
+*.tmp
+install.tmp
+not-install.tmp
+
+# Editor / OS noise
+*.swp
+*~
+.DS_Store
