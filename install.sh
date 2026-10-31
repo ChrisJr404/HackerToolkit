@@ -528,6 +528,23 @@ if ! grep -qF 'export PATH=$PATH:$HOME/.local/bin' "$mypath/.bin/hackertoolkit_b
     echo "export PATH=\$PATH:\$HOME/.local/bin" >>"$mypath/.bin/hackertoolkit_bash"
 fi
 
+# ---- API keys ----------------------------------------------------------------
+# Many tools need keys (Shodan, GitHub, SecurityTrails, VirusTotal, Censys).
+# Copy keys.env.example to ~/.config/hackertoolkit/keys.env and fill it in.
+# Loaded for THIS run (so a GITHUB_TOKEN also lifts the rate limit the gh_dl
+# release resolver uses) and wired into the shim env for future shells.
+HTK_KEYS="${XDG_CONFIG_HOME:-$HOME/.config}/hackertoolkit/keys.env"
+if [ -f "$HTK_KEYS" ]; then
+    set -a; . "$HTK_KEYS"; set +a
+    ok "Loaded API keys from $HTK_KEYS"
+else
+    info "No API-key file at $HTK_KEYS (optional — see keys.env.example)."
+fi
+if ! grep -qF 'hackertoolkit/keys.env' "$mypath/.bin/hackertoolkit_bash" 2>/dev/null; then
+    printf '[ -f %q ] && set -a && . %q && set +a\n' "$HTK_KEYS" "$HTK_KEYS" \
+        >>"$mypath/.bin/hackertoolkit_bash"
+fi
+
 # - Enumeration & Recon Tools
 set_category "Enumeration-Recon-Tools"
 mkdir -p "Enumeration-Recon-Tools"

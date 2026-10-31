@@ -80,8 +80,22 @@ Burp Suite extensions and browser extensions can't be installed from a shell —
 they load through Burp's BApp Store or your browser's add-on store. The installer
 prints the full list at the end of a run, and they're cataloged at the bottom of
 this document under **Burp Suite Extensions** and **Firefox Browser Extensions**.
-Several tools also need **API keys** (Shodan, GitHub, SecurityTrails, VirusTotal,
-Censys) — the installer lists which.
+## API keys
+
+Several tools need keys (Shodan, GitHub, SecurityTrails, VirusTotal, Censys).
+Set them once and every tool — and the installer's own GitHub API calls — pick
+them up:
+
+```bash
+mkdir -p ~/.config/hackertoolkit
+cp keys.env.example ~/.config/hackertoolkit/keys.env
+$EDITOR ~/.config/hackertoolkit/keys.env   # fill in the ones you have
+chmod 600 ~/.config/hackertoolkit/keys.env
+```
+
+The installer loads that file at the start of a run and wires it into the
+toolkit shell environment. Your real `keys.env` is gitignored; only
+[`keys.env.example`](keys.env.example) is tracked.
 
 ## Table of Contents
 <!-- BEGIN:TOC -->

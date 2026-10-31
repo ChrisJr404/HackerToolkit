@@ -13,3 +13,6 @@ not-install.tmp
 *.swp
 *~
 .DS_Store
+
+# Local API keys (never commit the real one)
+keys.env
