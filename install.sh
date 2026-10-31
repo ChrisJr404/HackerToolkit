@@ -145,10 +145,38 @@ gh_latest_url() {
 }
 # gh_dl <owner/repo> <asset-regex> <outfile> — download that asset, or fail.
 gh_dl() {
-    local url; url="$(gh_latest_url "$1" "$2")"
-    if [ -z "$url" ]; then err "no asset matching /$2/ in $1 latest release"; return 1; fi
-    info "↓ $(basename "$url")"
-    wget -qO "$3" "$url"
+    # gh_dl <owner/repo> <asset-name-regex> <outfile>
+    # Downloads the newest matching release asset and, when the release ships a
+    # checksums file, verifies the download's sha256 and FAILS HARD on mismatch.
+    # Releases without a checksums file are downloaded with a warning (we can't
+    # verify what upstream doesn't publish) — never a silent pass.
+    local repo="$1" rx="$2" out="$3" json url name sumurl want have
+    json="$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+        "https://api.github.com/repos/$repo/releases/latest" 2>/dev/null)"
+    url="$(printf '%s' "$json" | jq -r --arg rx "$rx" '.assets[]|select(.name|test($rx;"i"))|.browser_download_url' | head -1)"
+    if [ -z "$url" ] || [ "$url" = "null" ]; then err "no asset matching /$rx/ in $repo latest release"; return 1; fi
+    name="$(basename "$url")"
+    info "↓ $name"
+    wget -qO "$out" "$url" || { err "download failed: $name"; return 1; }
+
+    sumurl="$(printf '%s' "$json" | jq -r '.assets[]|select(.name|test("checksum|sha256|sha256sums";"i"))|.browser_download_url' | head -1)"
+    if [ -z "$sumurl" ] || [ "$sumurl" = "null" ]; then
+        warn "$repo publishes no checksums file — downloaded over TLS but sha256 not verified"
+        return 0
+    fi
+    want="$(curl -fsSL "$sumurl" 2>/dev/null | grep -iF "$name" | grep -oiE '[0-9a-f]{64}' | head -1)"
+    if [ -z "$want" ]; then
+        warn "no checksum line for $name — sha256 not verified"
+        return 0
+    fi
+    have="$(sha256sum "$out" | awk '{print $1}')"
+    if [ "$(printf '%s' "$want" | tr 'A-F' 'a-f')" = "$have" ]; then
+        ok "sha256 verified: $name"
+        return 0
+    fi
+    err "sha256 MISMATCH for $name — expected $want, got $have. Deleting and failing."
+    rm -f "$out"
+    return 1
 }
 
 # ---- Subcommands: doctor / update -------------------------------------------
