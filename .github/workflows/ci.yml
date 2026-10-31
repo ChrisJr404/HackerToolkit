@@ -121,3 +121,19 @@ jobs:
               print "manifest OK: " (NR - 1) " rows validated"
             }
           ' tools.tsv
+
+  selftest:
+    name: Repo self-test (sync + ToC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure shellcheck is installed
+        run: |
+          command -v shellcheck >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+
+      # Runs the same gates as scripts/selftest.sh: syntax, shellcheck errors,
+      # CLI smoke, manifest<->README sync, and ToC idempotency (fails if the
+      # committed ToC is stale — contributors must run scripts/gen-toc.sh).
+      - name: ./scripts/selftest.sh
+        run: bash ./scripts/selftest.sh

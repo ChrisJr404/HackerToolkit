@@ -152,6 +152,7 @@ toolkit shell environment. Your real `keys.env` is gitignored; only
     + [Smap](#smap-1)
     + [wtfis](#wtfis)
   * [Screenshotting](#screenshotting)
+    + [gowitness](#gowitness)
     + [Aquatone](#aquatone)
     + [Eyeballer](#eyeballer)
     + [EyeWitness](#eyewitness)
@@ -513,8 +514,12 @@ Passive hostname, domain and IP lookup tool for non-robots.
 ![demo](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/11088982-3350-48ec-a070-b913e3bbcdca)
 
 ## Screenshotting
+### gowitness
+A fast, actively-maintained web screenshot utility using Chrome Headless. The recommended replacement for the archived Aquatone and the abandoned go-stare.
+* https://github.com/sensepost/gowitness
+
 ### Aquatone
-Aquatone is a tool for visual inspection of websites across a large amount of hosts and is convenient for quickly gaining an overview of HTTP-based attack surface.
+Aquatone is a tool for visual inspection of websites across a large amount of hosts and is convenient for quickly gaining an overview of HTTP-based attack surface. **Note: archived upstream (2019) — prefer gowitness above.**
 * https://github.com/michenriksen/aquatone
 
 ![rszscreenshot280](https://github.com/ChrisJr404/HackerToolkit/assets/11917633/ef2532ae-4c9e-40b3-95df-81a09ff0d508)

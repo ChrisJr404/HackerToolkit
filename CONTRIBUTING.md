@@ -13,11 +13,12 @@ Every tool lives in **two** places that must agree:
 When you add, remove, or rename a tool:
 
 - [ ] Add/update its row in `tools.tsv`.
-- [ ] Regenerate the README catalog (`./scripts/gen-readme.sh`) rather than
-      hand-editing the tool list, so the ToC anchors stay correct.
-- [ ] Run `./install.sh --list` and confirm your tool appears in the right
-      category.
-- [ ] Test the install on a clean Kali/Debian box (or a container).
+- [ ] Add/update its `### Name` section in the README catalog, then run
+      `./scripts/gen-toc.sh` so the Table of Contents anchors stay correct.
+- [ ] Run `./scripts/selftest.sh` — it runs every gate CI enforces (syntax,
+      shellcheck errors, `--list`/`--help`/`doctor`, manifest↔README sync, and
+      ToC idempotency) offline, in seconds.
+- [ ] Test the install on a clean Kali/Debian box (or `make docker-build`).
 - [ ] If you pin a version, say why in the row's notes.
 
 ## Install-method conventions

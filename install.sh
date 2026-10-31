@@ -1196,6 +1196,15 @@ safe_cd ..
 set_category "Screenshotting"
 mkdir -p "Screenshotting"
 safe_cd "Screenshotting"
+### gowitness
+# https://github.com/sensepost/gowitness
+# Actively maintained screenshotter — the recommended replacement for the
+# archived aquatone / abandoned go-stare below.
+pck="gowitness";
+if try_install "$pck"; then
+    go install github.com/sensepost/gowitness@latest
+    mark_install "$pck" $?
+fi
 ### aquatone
 # https://github.com/michenriksen/aquatone
 pck="aquatone";
